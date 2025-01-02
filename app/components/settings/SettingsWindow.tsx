@@ -11,6 +11,10 @@ import FeaturesTab from './features/FeaturesTab';
 import DebugTab from './debug/DebugTab';
 import EventLogsTab from './event-logs/EventLogsTab';
 import ConnectionsTab from './connections/ConnectionsTab';
+import TokenUsageTab from './tokenusagestats/TokenUsageTab';
+import { useTokenUsage } from '~/lib/hooks/useTokenUsage';
+import { useStore } from '@nanostores/react';
+import { chatStore } from '~/lib/stores/chat';
 import DataTab from './data/DataTab';
 
 interface SettingsProps {
@@ -18,17 +22,51 @@ interface SettingsProps {
   onClose: () => void;
 }
 
-type TabType = 'data' | 'providers' | 'features' | 'debug' | 'event-logs' | 'connection';
+type TabType =
+  | 'chat-history'
+  | 'providers'
+  | 'features'
+  | 'debug'
+  | 'event-logs'
+  | 'connection'
+  | 'advanced-usage'
+  | 'data';
 
 export const SettingsWindow = ({ open, onClose }: SettingsProps) => {
   const { debug, eventLogs } = useSettings();
-  const [activeTab, setActiveTab] = useState<TabType>('data');
+  const [activeTab, setActiveTab] = useState<TabType>('chat-history');
+  const { modelUsages, totalUsage } = useTokenUsage();
+  const chatState = useStore(chatStore);
+
+  // Get all model usages and sort them by total tokens
+  const sortedUsages = Array.from(modelUsages.values()).sort((a, b) => b.totalTokens - a.totalTokens);
 
   const tabs: { id: TabType; label: string; icon: string; component?: ReactElement }[] = [
     { id: 'data', label: 'Data', icon: 'i-ph:database', component: <DataTab /> },
     { id: 'providers', label: 'Providers', icon: 'i-ph:key', component: <ProvidersTab /> },
     { id: 'connection', label: 'Connection', icon: 'i-ph:link', component: <ConnectionsTab /> },
     { id: 'features', label: 'Features', icon: 'i-ph:star', component: <FeaturesTab /> },
+    {
+      id: 'advanced-usage',
+      label: 'Advanced Usage ',
+      icon: 'i-ph:chart-line',
+      component:
+        sortedUsages.length > 0 ? (
+          <div className="space-y-3">
+            {sortedUsages.map((usage, index) => (
+              <TokenUsageTab
+                key={`${usage.provider}:${usage.model}`}
+                usage={usage}
+                totalTokens={totalUsage.totalTokens}
+                showTitle={index === 0}
+                chatTitle={chatState.title || 'New Chat'}
+              />
+            ))}
+          </div>
+        ) : (
+          <div>No usage data available</div>
+        ),
+    },
     ...(debug
       ? [
           {
@@ -85,10 +123,16 @@ export const SettingsWindow = ({ open, onClose }: SettingsProps) => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={classNames(activeTab === tab.id ? styles.active : '')}
+                    className={classNames(
+                      activeTab === tab.id ? styles.active : '',
+                      tab.id === 'advanced-usage' ? 'justify-between' : '',
+                    )}
                   >
-                    <div className={tab.icon} />
-                    {tab.label}
+                    <div className="flex items-center gap-2">
+                      <div className={tab.icon} />
+                      {tab.id !== 'advanced-usage' && tab.label}
+                    </div>
+                    {tab.id === 'advanced-usage' && <div className="flex-1 text-center pr-6">{tab.label}</div>}
                   </button>
                 ))}
                 <div className="mt-auto flex flex-col gap-2">

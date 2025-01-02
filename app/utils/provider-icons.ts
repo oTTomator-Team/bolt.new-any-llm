@@ -1,0 +1,18 @@
+export const PROVIDER_ICONS: Record<string, string> = {
+  Anthropic: '/icons/Anthropic.svg',
+  OpenAI: '/icons/OpenAI.svg',
+  Google: '/icons/Google.svg',
+  Cohere: '/icons/Cohere.svg',
+  Ollama: '/icons/Ollama.svg',
+  Groq: '/icons/Groq.svg',
+  Mistral: '/icons/Mistral.svg',
+  OpenRouter: '/icons/OpenRouter.svg',
+  Together: '/icons/Together.svg',
+  LMStudio: '/icons/LMStudio.svg',
+  OpenAILike: '/icons/OpenAILike.svg',
+  Deepseek: '/icons/Deepseek.svg',
+  HuggingFace: '/icons/HuggingFace.svg',
+  Perplexity: '/icons/Perplexity.svg',
+  xAI: '/icons/xAI.svg',
+  Default: '/icons/Default.svg',
+} as const;

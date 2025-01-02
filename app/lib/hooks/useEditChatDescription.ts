@@ -8,6 +8,7 @@ import {
   updateChatDescription,
   getMessages,
 } from '~/lib/persistence';
+import { chatStore } from '~/lib/stores/chat';
 
 interface EditChatDescriptionOptions {
   initialDescription?: string;
@@ -113,35 +114,34 @@ export function useEditChatDescription({
     async (event: React.FormEvent) => {
       event.preventDefault();
 
-      if (!isValidDescription(currentDescription)) {
-        return;
-      }
-
       try {
-        if (!db) {
-          toast.error('Chat persistence is not available');
-          return;
+        if (!chatId) {
+          throw new Error('No chat ID found');
         }
 
-        if (!chatId) {
-          toast.error('Chat Id is not available');
+        if (!db) {
+          throw new Error('Database not initialized');
+        }
+
+        if (!isValidDescription(currentDescription)) {
           return;
         }
 
         await updateChatDescription(db, chatId, currentDescription);
 
+        // Update the chat store title
+        chatStore.setKey('title', currentDescription);
+
         if (syncWithGlobalStore) {
           descriptionStore.set(currentDescription);
         }
 
-        toast.success('Chat description updated successfully');
+        setEditing(false);
       } catch (error) {
-        toast.error('Failed to update chat description: ' + (error as Error).message);
+        toast.error((error as Error).message);
       }
-
-      toggleEditMode();
     },
-    [currentDescription, db, chatId, initialDescription, customChatId],
+    [chatId, currentDescription, syncWithGlobalStore],
   );
 
   const handleKeyDown = useCallback(

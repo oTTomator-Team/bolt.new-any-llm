@@ -1,6 +1,6 @@
 import { WebContainer } from '@webcontainer/api';
 import { atom, map, type MapStore } from 'nanostores';
-import * as nodePath from 'node:path';
+import path from 'path';
 import type { ActionAlert, BoltAction } from '~/types/actions';
 import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
@@ -276,9 +276,9 @@ export class ActionRunner {
     }
 
     const webcontainer = await this.#webcontainer;
-    const relativePath = nodePath.relative(webcontainer.workdir, action.filePath);
+    const relativePath = path.relative(webcontainer.workdir, action.filePath);
 
-    let folder = nodePath.dirname(relativePath);
+    let folder = path.dirname(relativePath);
 
     // remove trailing slashes
     folder = folder.replace(/\/+$/g, '');

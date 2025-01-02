@@ -1,8 +1,5 @@
 import type { Message } from 'ai';
-import { createScopedLogger } from '~/utils/logger';
 import type { ChatHistoryItem } from './useChatHistory';
-
-const logger = createScopedLogger('ChatHistory');
 
 // this is used at the top level and never rejects
 export async function openDatabase(): Promise<IDBDatabase | undefined> {
@@ -12,25 +9,38 @@ export async function openDatabase(): Promise<IDBDatabase | undefined> {
   }
 
   return new Promise((resolve) => {
-    const request = indexedDB.open('boltHistory', 1);
+    // Increment version to 2 to trigger upgrade for pricing store
+    const request = indexedDB.open('boltHistory', 2);
 
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = (event.target as IDBOpenDBRequest).result;
+    request.onupgradeneeded = (_event: IDBVersionChangeEvent) => {
+      const db = (_event.target as IDBOpenDBRequest).result;
+      const oldVersion = _event.oldVersion;
 
-      if (!db.objectStoreNames.contains('chats')) {
-        const store = db.createObjectStore('chats', { keyPath: 'id' });
-        store.createIndex('id', 'id', { unique: true });
-        store.createIndex('urlId', 'urlId', { unique: true });
+      // For version 1: Create chats store if it doesn't exist
+      if (oldVersion < 1) {
+        if (!db.objectStoreNames.contains('chats')) {
+          const store = db.createObjectStore('chats', { keyPath: 'id' });
+          store.createIndex('id', 'id', { unique: true });
+          store.createIndex('urlId', 'urlId', { unique: true });
+        }
+      }
+
+      // For version 2: Create pricing store if it doesn't exist
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains('pricing')) {
+          const store = db.createObjectStore('pricing', { keyPath: 'provider' });
+          store.createIndex('provider', 'provider', { unique: true });
+        }
       }
     };
 
-    request.onsuccess = (event: Event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
+    request.onsuccess = (_event: Event) => {
+      resolve((_event.target as IDBOpenDBRequest).result);
     };
 
-    request.onerror = (event: Event) => {
+    request.onerror = (_event: Event) => {
+      console.error('Error opening database:', request.error);
       resolve(undefined);
-      logger.error((event.target as IDBOpenDBRequest).error);
     };
   });
 }
@@ -153,8 +163,8 @@ async function getUrlIds(db: IDBDatabase): Promise<string[]> {
 
     const request = store.openCursor();
 
-    request.onsuccess = (event: Event) => {
-      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+    request.onsuccess = (_event: Event) => {
+      const cursor = (_event.target as IDBRequest<IDBCursorWithValue | null>).result;
 
       if (cursor) {
         idList.push(cursor.value.urlId);
@@ -231,4 +241,69 @@ export async function updateChatDescription(db: IDBDatabase, id: string, descrip
   }
 
   await setMessages(db, id, chat.messages, chat.urlId, description, chat.timestamp);
+}
+
+// Pricing functions
+export async function setPricing(db: IDBDatabase, provider: string, pricing: any): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['pricing'], 'readwrite');
+    const store = transaction.objectStore('pricing');
+
+    const request = store.put({ provider, pricing });
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getPricing(db: IDBDatabase, provider: string): Promise<any | null> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['pricing'], 'readonly');
+    const store = transaction.objectStore('pricing');
+
+    const request = store.get(provider);
+
+    request.onsuccess = () => resolve(request.result?.pricing || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deletePricing(db: IDBDatabase, provider: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['pricing'], 'readwrite');
+    const store = transaction.objectStore('pricing');
+
+    const request = store.delete(provider);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getAllPricing(db: IDBDatabase): Promise<Record<string, any>> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['pricing'], 'readonly');
+    const store = transaction.objectStore('pricing');
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      const result: Record<string, any> = {};
+      request.result.forEach((item) => {
+        result[item.provider] = item.pricing;
+      });
+      resolve(result);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function clearAllPricing(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['pricing'], 'readwrite');
+    const store = transaction.objectStore('pricing');
+    store.clear();
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
 }

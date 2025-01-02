@@ -4,7 +4,8 @@ import { atom } from 'nanostores';
 import type { Message } from 'ai';
 import { toast } from 'react-toastify';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { logStore } from '~/lib/stores/logs'; // Import logStore
+import { logStore } from '~/lib/stores/logs';
+import { chatStore } from '~/lib/stores/chat';
 import {
   getMessages,
   getNextId,
@@ -63,7 +64,11 @@ export function useChatHistory() {
 
             setInitialMessages(filteredMessages);
             setUrlId(storedMessages.urlId);
-            description.set(storedMessages.description);
+
+            // Set chat title in all stores
+            const chatTitle = storedMessages.urlId || 'New Chat';
+            description.set(chatTitle);
+            chatStore.setKey('title', chatTitle);
             chatId.set(storedMessages.id);
           } else {
             navigate('/', { replace: true });
@@ -90,18 +95,14 @@ export function useChatHistory() {
 
       if (!urlId && firstArtifact?.id) {
         const urlId = await getUrlId(db, firstArtifact.id);
-
         navigateChat(urlId);
         setUrlId(urlId);
-      }
-
-      if (!description.get() && firstArtifact?.title) {
-        description.set(firstArtifact?.title);
+        description.set(urlId);
+        chatStore.setKey('title', urlId);
       }
 
       if (initialMessages.length === 0 && !chatId.get()) {
         const nextId = await getNextId(db);
-
         chatId.set(nextId);
 
         if (!urlId) {

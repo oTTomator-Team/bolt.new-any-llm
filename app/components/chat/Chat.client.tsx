@@ -166,6 +166,11 @@ export const ChatImpl = memo(
       initialMessages,
       initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
     });
+
+    useEffect(() => {
+      updateChatMessages(messages);
+    }, [messages]);
+
     useEffect(() => {
       const prompt = searchParams.get('prompt');
 
@@ -534,3 +539,7 @@ export const ChatImpl = memo(
     );
   },
 );
+
+const updateChatMessages = (messages: Message[]) => {
+  chatStore.setKey('messages', messages);
+};
