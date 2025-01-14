@@ -60,39 +60,76 @@ const SyncTooltipContent = memo(
     lastSyncTime,
     syncStats,
     syncSettings,
+    currentSession,
   }: {
     syncFolder: FileSystemDirectoryHandle;
     lastSyncTime: string;
     syncStats: { files: number; size: string } | null;
     syncSettings: NonNullable<(typeof workbenchStore)['syncSettings']['value']>;
+    currentSession: NonNullable<(typeof workbenchStore)['currentSession']['value']>;
   }) => (
-    <div className="space-y-2 p-2 min-w-[200px]">
-      <div className="font-medium text-bolt-elements-textPrimary">Sync Folder:</div>
-      <div className="text-sm text-bolt-elements-textSecondary truncate max-w-[250px]">{syncFolder.name}</div>
-      {lastSyncTime && (
-        <>
-          <div className="font-medium text-bolt-elements-textPrimary mt-3">Last Sync:</div>
-          <div className="text-sm text-bolt-elements-textSecondary">{lastSyncTime}</div>
-        </>
-      )}
-      {syncStats && (
-        <>
-          <div className="font-medium text-bolt-elements-textPrimary mt-3">Files:</div>
-          <div className="text-sm text-bolt-elements-textSecondary">
-            {syncStats.files} files ({syncStats.size})
+    <div className="space-y-3 p-3 min-w-[240px]">
+      {/* Status */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-sm text-green-400 font-medium">Active</span>
+        </div>
+        {lastSyncTime && <div className="text-xs text-bolt-elements-textTertiary">Last sync: {lastSyncTime}</div>}
+      </div>
+
+      {/* Folders */}
+      <div className="space-y-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-bolt-elements-textSecondary">Main Sync Folder</span>
+          <div className="flex items-center gap-2 text-sm">
+            <div className="i-ph:folder-duotone text-bolt-elements-textTertiary" />
+            <span className="text-bolt-elements-textPrimary truncate">{syncFolder.name}</span>
           </div>
-        </>
-      )}
-      {syncSettings.autoSync && (
-        <div className="flex items-center gap-2 mt-3 text-sm text-green-400">
-          <div className="i-ph:check-circle" />
-          Auto-sync every {syncSettings.autoSyncInterval} minutes
+        </div>
+        {currentSession?.projectFolder && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-bolt-elements-textSecondary">Project Folder</span>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="i-ph:folder-notch-duotone text-bolt-elements-textTertiary" />
+              <span className="text-bolt-elements-textPrimary truncate">{currentSession.projectFolder}</span>
+              {currentSession.projectName && (
+                <span className="text-xs text-bolt-elements-textTertiary">({currentSession.projectName})</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stats */}
+      {syncStats && (
+        <div className="flex items-center gap-4 text-sm text-bolt-elements-textSecondary">
+          <div className="flex items-center gap-2">
+            <div className="i-ph:files-duotone" />
+            <span>{syncStats.files} files</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="i-ph:database-duotone" />
+            <span>{syncStats.size}</span>
+          </div>
         </div>
       )}
-      {syncSettings.syncOnSave && (
-        <div className="flex items-center gap-2 mt-3 text-sm text-green-400">
-          <div className="i-ph:check-circle" />
-          Sync on save enabled
+
+      {/* Settings */}
+      {(syncSettings.autoSync || syncSettings.syncOnSave) && (
+        <div className="border-t border-bolt-elements-borderColor/10 pt-2 space-y-1.5">
+          {syncSettings.autoSync && (
+            <div className="flex items-center gap-2 text-xs text-green-400">
+              <div className="i-ph:arrows-clockwise-duotone" />
+              Auto-sync every {syncSettings.autoSyncInterval}m
+            </div>
+          )}
+          {syncSettings.syncOnSave && (
+            <div className="flex items-center gap-2 text-xs text-green-400">
+              <div className="i-ph:check-circle-duotone" />
+              Sync on save enabled
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -308,33 +345,46 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                                 lastSyncTime={lastSyncTime}
                                 syncStats={syncStats}
                                 syncSettings={syncSettings}
+                                currentSession={
+                                  currentSession || {
+                                    id: '',
+                                    timestamp: Date.now(),
+                                    lastSync: Date.now(),
+                                    files: new Set(),
+                                    history: [],
+                                    statistics: [],
+                                  }
+                                }
                               />
                             }
                           >
-                            <div className="flex items-center gap-1.5 text-sm text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors">
-                              <div className="i-ph:folder" />
+                            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-green-500/5 border border-green-500/10 text-sm text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors">
+                              <div className="i-ph:folder-duotone" />
                               <span className="truncate max-w-[120px]">{syncFolder.name}</span>
-                              {lastSyncTime && (
-                                <span className="text-xs text-bolt-elements-textTertiary">• {lastSyncTime}</span>
-                              )}
-                              {syncSettings.syncOnSave && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-sm shadow-green-400/20" />
-                              )}
+                              <div className="flex items-center gap-1">
+                                {syncSettings.autoSync && (
+                                  <div className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
+                                )}
+                                {syncSettings.syncOnSave && (
+                                  <div className="i-ph:check-circle text-[12px] text-green-400/80" />
+                                )}
+                              </div>
                             </div>
                           </Tooltip>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 border-l border-bolt-elements-borderColor pl-1">
                             <IconButton
                               onClick={handleSync}
                               disabled={isSyncing}
                               className={classNames(
-                                'text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors',
+                                'text-bolt-elements-textSecondary hover:text-green-400 transition-colors',
                                 {
                                   'animate-spin': isSyncing,
                                 },
                               )}
+                              title={isSyncing ? 'Sync in progress...' : 'Sync now'}
                             >
-                              <div className="i-ph:arrows-clockwise" />
+                              <div className="i-ph:arrows-clockwise-duotone" />
                             </IconButton>
 
                             <IconButton
@@ -342,7 +392,7 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                               className="text-bolt-elements-textSecondary hover:text-red-400 transition-colors"
                               title="Clear sync folder"
                             >
-                              <div className="i-ph:x" />
+                              <div className="i-ph:x-circle-duotone" />
                             </IconButton>
                           </div>
                         </div>
@@ -351,7 +401,7 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                           onClick={handleSelectFolder}
                           className="text-sm flex items-center gap-1.5 text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors"
                         >
-                          <div className="i-ph:folder-simple-plus" />
+                          <div className="i-ph:folder-simple-plus-duotone" />
                           Select Folder
                         </PanelHeaderButton>
                       )}

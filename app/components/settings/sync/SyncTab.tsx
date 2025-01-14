@@ -125,60 +125,141 @@ export default function SyncTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Sync Controls */}
       <div className="bg-bolt-elements-background-depth-3 p-4 rounded-lg border border-bolt-elements-borderColor/10">
         <div className="flex flex-col gap-4">
+          {/* Header and Status */}
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h3 className="text-lg font-medium text-bolt-elements-textPrimary">Sync Controls</h3>
-              {syncFolder && lastSyncTime && (
-                <div className="text-sm text-bolt-elements-textSecondary mt-1">Last synced {lastSyncTime}</div>
-              )}
+              <div className="mt-1.5 flex items-center gap-3">
+                {syncFolder && lastSyncTime && (
+                  <div className="text-sm text-bolt-elements-textSecondary flex items-center gap-2">
+                    <div className="i-ph:clock-duotone text-bolt-elements-textTertiary" />
+                    Last synced {lastSyncTime}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <SyncStatusIndicator status={isManualSyncing ? 'syncing' : !syncStatus.isReady ? 'error' : 'idle'} />
+              <div
+                className={classNames(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors cursor-default',
+                  {
+                    'bg-green-500/10 border-green-500/20': !isManualSyncing && syncStatus.isReady,
+                    'bg-bolt-elements-background-depth-4 border-bolt-elements-borderColor/5':
+                      isManualSyncing || !syncStatus.isReady,
+                  },
+                )}
+              >
+                <div className="relative">
+                  <SyncStatusIndicator status={isManualSyncing ? 'syncing' : !syncStatus.isReady ? 'error' : 'idle'} />
+                  {isManualSyncing && (
+                    <div className="absolute inset-0 animate-ping">
+                      <SyncStatusIndicator status="syncing" />
+                    </div>
+                  )}
+                </div>
+                <span
+                  className={classNames('text-sm whitespace-nowrap', {
+                    'text-green-500 font-medium': !isManualSyncing && syncStatus.isReady,
+                    'text-bolt-elements-textSecondary': isManualSyncing || !syncStatus.isReady,
+                  })}
+                >
+                  {isManualSyncing ? 'Syncing...' : !syncStatus.isReady ? 'Not Connected' : 'Connected'}
+                </span>
+              </div>
               <PanelHeaderButton
                 onClick={handleSelectFolder}
                 className="text-sm px-3 py-1.5 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text transition-all rounded-md flex items-center gap-1.5"
               >
-                <div className="i-ph:folder-simple-plus" />
-                {syncFolder ? 'Change Folder' : 'Select Folder'}
+                <div className="i-ph:folder-simple-plus-duotone" />
+                {syncFolder ? 'Change Main Folder' : 'Set Main Folder'}
               </PanelHeaderButton>
               {syncFolder && (
                 <PanelHeaderButton
                   onClick={handleManualSync}
                   disabled={isManualSyncing}
+                  aria-label={isManualSyncing ? 'Sync in progress...' : 'Manually sync files now'}
                   className="text-sm px-3 py-1.5 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-md flex items-center gap-1.5"
                 >
-                  <div className={classNames('i-ph:arrows-clockwise', { 'animate-spin': isManualSyncing })} />
+                  <div className={classNames('i-ph:arrows-clockwise-duotone', { 'animate-spin': isManualSyncing })} />
                   {isManualSyncing ? 'Syncing...' : 'Sync Now'}
                 </PanelHeaderButton>
               )}
             </div>
           </div>
 
-          {/* Folder Info */}
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-bolt-elements-background-depth-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="i-ph:folder text-bolt-elements-textTertiary" />
-                {syncFolder ? (
-                  <span className="truncate font-medium text-bolt-elements-textPrimary">{syncFolder.name}</span>
-                ) : (
-                  <span className="text-bolt-elements-textSecondary">No folder selected</span>
-                )}
-              </div>
-            </div>
-            {syncFolder && (
-              <div className="flex items-center gap-4 text-sm text-bolt-elements-textSecondary">
-                <div className="flex items-center gap-1">
-                  <div className="i-ph:files" />
-                  <span>{totalFiles} files</span>
+          {/* Sync Settings Indicators */}
+          {(syncSettings.autoSync || syncSettings.syncOnSave) && (
+            <div className="flex items-center gap-4 p-3 rounded-md bg-bolt-elements-background-depth-4 border border-bolt-elements-borderColor/5">
+              {syncSettings.autoSync && (
+                <div className="flex items-center gap-1.5 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-sm shadow-green-500/20" />
+                  <span className="text-green-500">Auto-sync every {syncSettings.autoSyncInterval}m</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="i-ph:database" />
-                  <span>{formatFileSize(totalSize)}</span>
+              )}
+              {syncSettings.syncOnSave && (
+                <div className="flex items-center gap-1.5 text-sm">
+                  <div className="i-ph:check-circle-duotone text-green-500" />
+                  <span className="text-green-500">Sync on save</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Folders */}
+          <div className="grid gap-3">
+            {/* Main Sync Folder */}
+            <div className="flex items-center gap-4 p-3 rounded-lg bg-bolt-elements-background-depth-4 border border-bolt-elements-borderColor/5">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3">
+                  <div className="i-ph:folder-simple-duotone text-2xl text-bolt-elements-textTertiary" />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-medium text-bolt-elements-textSecondary">Main Sync Folder</span>
+                    {syncFolder ? (
+                      <span className="truncate font-medium text-bolt-elements-textPrimary">{syncFolder.name}</span>
+                    ) : (
+                      <span className="text-bolt-elements-textSecondary italic">No folder selected</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {syncFolder && (
+                <div className="flex items-center gap-4 text-sm text-bolt-elements-textSecondary border-l border-bolt-elements-borderColor/10 pl-4">
+                  <div className="flex items-center gap-2">
+                    <div className="i-ph:files-duotone" />
+                    <span>{totalFiles} files</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="i-ph:database-duotone" />
+                    <span>{formatFileSize(totalSize)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Project Folder */}
+            {syncFolder && currentSession?.projectFolder && (
+              <div className="flex items-center gap-4 p-3 rounded-lg bg-bolt-elements-background-depth-4 border border-bolt-elements-borderColor/5">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="i-ph:folder-notch-duotone text-2xl text-bolt-elements-textTertiary" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-medium text-bolt-elements-textSecondary">Project Folder</span>
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium text-bolt-elements-textPrimary">
+                          {currentSession.projectFolder}
+                        </span>
+                        {currentSession.projectName && (
+                          <span className="text-xs text-bolt-elements-textTertiary">
+                            ({currentSession.projectName})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

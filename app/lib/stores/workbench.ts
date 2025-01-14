@@ -22,6 +22,7 @@ import type { SyncSettings, SyncSession, ProjectSyncInfo } from '~/types/sync';
 import { toast } from 'react-toastify';
 import ignore from 'ignore';
 import { ProjectFolderManager } from '~/lib/persistence/project-folders';
+import { clearSyncFolderHandle, loadSyncFolderHandle, saveSyncFolderHandle } from '~/lib/persistence/sync-folder';
 
 export interface ArtifactState {
   id: string;
@@ -844,6 +845,9 @@ export class WorkbenchStore {
         // Clean up test directory
         await handle.removeEntry(testDirName);
 
+        // Save the handle to IndexedDB for persistence
+        await saveSyncFolderHandle(handle);
+
         // Dismiss any existing sync folder notifications
         toast.dismiss('sync-folder-not-set');
 
@@ -855,11 +859,21 @@ export class WorkbenchStore {
         console.error('Failed to verify sync folder permissions:', error);
         toast.error('Unable to write to selected folder. Please choose a different folder.');
         this.syncFolder.set(null);
+        await clearSyncFolderHandle();
       }
+    } else {
+      await clearSyncFolderHandle();
     }
   }
 
   async initializeSession() {
+    // Try to restore sync folder from IndexedDB
+    const savedHandle = await loadSyncFolderHandle();
+
+    if (savedHandle) {
+      this.syncFolder.set(savedHandle);
+    }
+
     const session: SyncSession = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
