@@ -1164,6 +1164,82 @@ export class WorkbenchStore {
           noButton.onclick = () => {
             dialog.remove();
             resolve(false);
+
+            // Show auto-closing confirmation dialog
+            const confirmDialog = document.createElement('dialog');
+            confirmDialog.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50';
+
+            const confirmContent = document.createElement('div');
+            confirmContent.className =
+              'bg-bolt-elements-background-depth-2 p-6 rounded-lg shadow-lg max-w-md w-full relative';
+
+            const closeButton = document.createElement('button');
+            closeButton.className =
+              'absolute right-0 text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary transition-colors';
+            closeButton.innerHTML = '<div class="i-ph:x-circle text-2xl"></div>';
+
+            closeButton.onclick = () => {
+              clearInterval(countdownInterval);
+              confirmDialog.remove();
+            };
+
+            const confirmTitle = document.createElement('h3');
+            confirmTitle.className = 'text-lg font-medium text-bolt-elements-textPrimary';
+            confirmTitle.textContent = 'Sync is Disabled';
+
+            const confirmDescription = document.createElement('p');
+            confirmDescription.className = 'text-sm text-bolt-elements-textSecondary';
+            confirmDescription.textContent = 'You can enable and configure sync settings at any time.';
+
+            const countdownText = document.createElement('div');
+            countdownText.className = 'text-xs text-bolt-elements-textTertiary mt-2';
+            countdownText.textContent = 'Closing in 5s';
+
+            const configureButton = document.createElement('button');
+            configureButton.className =
+              'px-4 py-2 text-sm rounded-md bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text transition-colors mt-4';
+            configureButton.textContent = 'Configure Settings';
+
+            configureButton.onclick = () => {
+              confirmDialog.remove();
+
+              // Clear any existing intervals
+              clearInterval(countdownInterval);
+
+              // Show the simple sync settings dialog
+              this.showSimpleSyncDialog(rawProjectName);
+            };
+
+            confirmContent.appendChild(closeButton);
+            confirmContent.appendChild(confirmTitle);
+            confirmContent.appendChild(confirmDescription);
+            confirmContent.appendChild(countdownText);
+            confirmContent.appendChild(configureButton);
+            confirmDialog.appendChild(confirmContent);
+
+            document.body.appendChild(confirmDialog);
+            confirmDialog.showModal();
+
+            // Countdown and auto-close after 5 seconds
+            let timeLeft = 5;
+            const countdownInterval = setInterval(() => {
+              timeLeft--;
+
+              if (timeLeft > 0) {
+                countdownText.textContent = `Closing in ${timeLeft}s`;
+              } else {
+                clearInterval(countdownInterval);
+
+                if (document.body.contains(confirmDialog)) {
+                  confirmDialog.remove();
+                }
+              }
+            }, 1000);
+
+            // Clear interval if dialog is closed manually
+            confirmDialog.addEventListener('close', () => {
+              clearInterval(countdownInterval);
+            });
           };
 
           const yesButton = document.createElement('button');
