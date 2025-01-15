@@ -1,7 +1,7 @@
 import ignore from 'ignore';
 import { useGit } from '~/lib/hooks/useGit';
 import type { Message } from 'ai';
-import { detectProjectCommands, createCommandsMessage } from '~/utils/projectCommands';
+import { detectProjectCommands, createCommandsMessage, escapeBoltTags } from '~/utils/projectCommands';
 import { generateId } from '~/utils/fileUtils';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -83,7 +83,7 @@ ${fileContents
   .map(
     (file) =>
       `<boltAction type="file" filePath="${file.path}">
-${file.content}
+${escapeBoltTags(file.content)}
 </boltAction>`,
   )
   .join('\n')}

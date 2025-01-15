@@ -1,6 +1,6 @@
 import type { Message } from 'ai';
 import { generateId } from './fileUtils';
-import { detectProjectCommands, createCommandsMessage } from './projectCommands';
+import { detectProjectCommands, createCommandsMessage, escapeBoltTags } from './projectCommands';
 
 export const createChatFromFolder = async (
   files: File[],
@@ -42,7 +42,7 @@ export const createChatFromFolder = async (
 ${fileArtifacts
   .map(
     (file) => `<boltAction type="file" filePath="${file.path}">
-${file.content}
+${escapeBoltTags(file.content)}
 </boltAction>`,
   )
   .join('\n\n')}

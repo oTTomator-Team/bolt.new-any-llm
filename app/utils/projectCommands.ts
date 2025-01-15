@@ -78,3 +78,39 @@ ${commands.setupCommand}
     createdAt: new Date(),
   };
 }
+
+export function escapeBoltArtifactTags(input: string) {
+  // Regular expression to match boltArtifact tags and their content
+  const regex = /(<boltArtifact[^>]*>)([\s\S]*?)(<\/boltArtifact>)/g;
+
+  return input.replace(regex, (match, openTag, content, closeTag) => {
+    // Escape the opening tag
+    const escapedOpenTag = openTag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Escape the closing tag
+    const escapedCloseTag = closeTag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Return the escaped version
+    return `${escapedOpenTag}${content}${escapedCloseTag}`;
+  });
+}
+
+export function escapeBoltAActionTags(input: string) {
+  // Regular expression to match boltArtifact tags and their content
+  const regex = /(<boltAction[^>]*>)([\s\S]*?)(<\/boltAction>)/g;
+
+  return input.replace(regex, (match, openTag, content, closeTag) => {
+    // Escape the opening tag
+    const escapedOpenTag = openTag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Escape the closing tag
+    const escapedCloseTag = closeTag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Return the escaped version
+    return `${escapedOpenTag}${content}${escapedCloseTag}`;
+  });
+}
+
+export function escapeBoltTags(input: string) {
+  return escapeBoltArtifactTags(escapeBoltAActionTags(input));
+}
