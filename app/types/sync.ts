@@ -18,6 +18,7 @@ export interface ProjectSyncInfo {
   projectName: string;
   folderName: string;
   lastSync: number;
+  syncEnabled: boolean;
 }
 
 export interface SyncSettings {
@@ -27,6 +28,7 @@ export interface SyncSettings {
   excludePatterns: string[];
   syncMode: 'ask' | 'overwrite' | 'skip';
   projectFolders: Record<string, ProjectSyncInfo>;
+  defaultSyncEnabled: boolean;
 }
 
 export interface SyncSession {

@@ -89,6 +89,7 @@ export class ProjectFolderManager {
       projectName,
       folderName,
       lastSync: Date.now(),
+      syncEnabled: false,
     };
 
     this._projectFolders.set(projectName, info);

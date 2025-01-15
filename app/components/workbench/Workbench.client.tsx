@@ -72,10 +72,24 @@ const SyncTooltipContent = memo(
       {/* Status */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-sm text-green-400 font-medium">Active</span>
+          <div
+            className={classNames(
+              'w-1.5 h-1.5 rounded-full',
+              workbenchStore.isSyncEnabled.get() ? 'bg-green-400 animate-pulse' : 'bg-red-400',
+            )}
+          />
+          <span
+            className={classNames(
+              'text-sm font-medium',
+              workbenchStore.isSyncEnabled.get() ? 'text-green-400' : 'text-red-400',
+            )}
+          >
+            {workbenchStore.isSyncEnabled.get() ? 'Sync Enabled' : 'Sync Disabled'}
+          </span>
         </div>
-        {lastSyncTime && <div className="text-xs text-bolt-elements-textTertiary">Last sync: {lastSyncTime}</div>}
+        {lastSyncTime && workbenchStore.isSyncEnabled.get() && (
+          <div className="text-xs text-bolt-elements-textTertiary">Last sync: {lastSyncTime}</div>
+        )}
       </div>
 
       {/* Folders */}
@@ -358,43 +372,66 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                               />
                             }
                           >
-                            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-green-500/5 border border-green-500/10 text-sm text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary transition-colors">
+                            <div
+                              className={classNames(
+                                'flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors',
+                                workbenchStore.isSyncEnabled.get()
+                                  ? 'bg-green-500/5 border-green-500/10'
+                                  : 'bg-red-500/5 border-red-500/10',
+                              )}
+                            >
                               <div className="i-ph:folder-duotone" />
                               <span className="truncate max-w-[120px]">{syncFolder.name}</span>
-                              <div className="flex items-center gap-1">
-                                {syncSettings.autoSync && (
-                                  <div className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
-                                )}
-                                {syncSettings.syncOnSave && (
-                                  <div className="i-ph:check-circle text-[12px] text-green-400/80" />
+                              <div className="flex items-center gap-2 border-l border-bolt-elements-borderColor/10 pl-2">
+                                <div
+                                  className={classNames(
+                                    'text-xs px-1.5 py-0.5 rounded',
+                                    workbenchStore.isSyncEnabled.get()
+                                      ? 'bg-green-500/10 text-green-400'
+                                      : 'bg-red-500/10 text-red-400',
+                                  )}
+                                >
+                                  {workbenchStore.isSyncEnabled.get() ? 'Sync On' : 'Sync Off'}
+                                </div>
+                                {workbenchStore.isSyncEnabled.get() && (
+                                  <>
+                                    {syncSettings.autoSync && (
+                                      <div className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
+                                    )}
+                                    {syncSettings.syncOnSave && (
+                                      <div className="i-ph:check-circle text-[12px] text-green-400/80" />
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
                           </Tooltip>
 
-                          <div className="flex items-center gap-1 border-l border-bolt-elements-borderColor pl-1">
-                            <IconButton
-                              onClick={handleSync}
-                              disabled={isSyncing}
-                              className={classNames(
-                                'text-bolt-elements-textSecondary hover:text-green-400 transition-colors',
-                                {
-                                  'animate-spin': isSyncing,
-                                },
-                              )}
-                              title={isSyncing ? 'Sync in progress...' : 'Sync now'}
-                            >
-                              <div className="i-ph:arrows-clockwise-duotone" />
-                            </IconButton>
+                          {workbenchStore.isSyncEnabled.get() && (
+                            <div className="flex items-center gap-1 border-l border-bolt-elements-borderColor pl-1">
+                              <IconButton
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                className={classNames(
+                                  'text-bolt-elements-textSecondary hover:text-green-400 transition-colors',
+                                  {
+                                    'animate-spin': isSyncing,
+                                  },
+                                )}
+                                title={isSyncing ? 'Sync in progress...' : 'Sync now'}
+                              >
+                                <div className="i-ph:arrows-clockwise-duotone" />
+                              </IconButton>
 
-                            <IconButton
-                              onClick={() => workbenchStore.setSyncFolder(null)}
-                              className="text-bolt-elements-textSecondary hover:text-red-400 transition-colors"
-                              title="Clear sync folder"
-                            >
-                              <div className="i-ph:x-circle-duotone" />
-                            </IconButton>
-                          </div>
+                              <IconButton
+                                onClick={() => workbenchStore.setSyncFolder(null)}
+                                className="text-bolt-elements-textSecondary hover:text-red-400 transition-colors"
+                                title="Clear sync folder"
+                              >
+                                <div className="i-ph:x-circle-duotone" />
+                              </IconButton>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <PanelHeaderButton

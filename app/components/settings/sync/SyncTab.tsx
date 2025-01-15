@@ -272,8 +272,79 @@ export default function SyncTab() {
         <h3 className="text-lg font-medium text-bolt-elements-textPrimary mb-4">Sync Settings</h3>
         <div className="space-y-4">
           <div className="space-y-2">
-            <div className="text-sm text-bolt-elements-textPrimary">Auto-sync</div>
-            <div className="flex flex-col gap-4">
+            <div className="text-sm text-bolt-elements-textPrimary">Sync Settings</div>
+            <div className="space-y-4">
+              {/* Default Sync Behavior */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-bolt-elements-background-depth-4">
+                <div>
+                  <div className="text-sm font-medium text-bolt-elements-textPrimary">Default Sync Behavior</div>
+                  <div className="text-xs text-bolt-elements-textSecondary mt-0.5">
+                    Choose whether new projects should be synced by default
+                  </div>
+                </div>
+                <IconButton
+                  onClick={() => handleSaveSettings({ defaultSyncEnabled: !syncSettings.defaultSyncEnabled })}
+                  className={classNames(
+                    'text-xl transition-colors',
+                    syncSettings.defaultSyncEnabled
+                      ? 'text-green-400 hover:text-green-500'
+                      : 'text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary',
+                  )}
+                >
+                  <div className={syncSettings.defaultSyncEnabled ? 'i-ph:check-square-fill' : 'i-ph:square'} />
+                </IconButton>
+              </div>
+
+              {/* Project Sync Control */}
+              {currentSession?.projectName && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-bolt-elements-background-depth-4">
+                  <div>
+                    <div className="text-sm font-medium text-bolt-elements-textPrimary">
+                      Sync for "{currentSession.projectName}"
+                    </div>
+                    <div className="text-xs text-bolt-elements-textSecondary mt-0.5">
+                      Enable or disable sync for this specific project
+                    </div>
+                  </div>
+                  <IconButton
+                    onClick={() => {
+                      const projectName = currentSession.projectName;
+
+                      if (!projectName) {
+                        return;
+                      }
+
+                      const projectInfo = syncSettings.projectFolders[projectName] || {
+                        projectName,
+                        folderName: currentSession.projectFolder || '',
+                        lastSync: Date.now(),
+                        syncEnabled: syncSettings.defaultSyncEnabled,
+                      };
+                      workbenchStore.toggleProjectSync(!projectInfo.syncEnabled);
+                    }}
+                    className={classNames(
+                      'text-xl transition-colors',
+                      ((currentSession.projectName &&
+                        syncSettings.projectFolders[currentSession.projectName]?.syncEnabled) ??
+                        syncSettings.defaultSyncEnabled)
+                        ? 'text-green-400 hover:text-green-500'
+                        : 'text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary',
+                    )}
+                  >
+                    <div
+                      className={
+                        ((currentSession.projectName &&
+                          syncSettings.projectFolders[currentSession.projectName]?.syncEnabled) ??
+                        syncSettings.defaultSyncEnabled)
+                          ? 'i-ph:check-square-fill'
+                          : 'i-ph:square'
+                      }
+                    />
+                  </IconButton>
+                </div>
+              )}
+
+              {/* Existing Auto-sync settings */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
