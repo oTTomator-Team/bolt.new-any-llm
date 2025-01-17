@@ -4,6 +4,15 @@ type Cloudflare = Omit<PlatformProxy<Env>, 'dispose'>;
 
 declare module '@remix-run/cloudflare' {
   interface AppLoadContext {
-    cloudflare: Cloudflare;
+    cloudflare?: Cloudflare;
   }
 }
+
+
+declare module '@remix-run/server-runtime' {
+  interface AppLoadContext {
+    cloudflare?: Cloudflare;
+  }
+}
+
+

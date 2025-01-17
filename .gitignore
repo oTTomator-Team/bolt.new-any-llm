@@ -40,3 +40,6 @@ site
 
 # commit file ignore
 app/commit.json
+
+release/
+dist-electron/

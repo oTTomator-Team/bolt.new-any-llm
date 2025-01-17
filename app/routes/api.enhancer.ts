@@ -1,4 +1,4 @@
-import { type ActionFunctionArgs } from '@remix-run/cloudflare';
+import { type ActionFunctionArgs } from '@remix-run/server-runtime';
 
 //import { StreamingTextResponse, parseStreamPart } from 'ai';
 import { streamText } from '~/lib/.server/llm/stream-text';
@@ -99,7 +99,7 @@ async function enhancerAction({ context, request }: ActionFunctionArgs) {
           `,
         },
       ],
-      env: context.cloudflare.env,
+      env: context.cloudflare?.env,
       apiKeys,
       providerSettings,
     });

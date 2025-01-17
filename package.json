@@ -6,9 +6,15 @@
   "sideEffects": false,
   "type": "module",
   "version": "0.0.5",
+  "main": "dist-electron/main.js",
+  "author": {
+    "name": "bolt.diy team",
+    "email": "maintainers@bolt.diy"
+  },
   "scripts": {
     "deploy": "npm run build && wrangler pages deploy",
     "build": "remix vite:build",
+    "build:electron": "tsc -p electron/tsconfig.json",
     "dev": "node pre-start.cjs  && remix vite:dev",
     "test": "vitest --run",
     "test:watch": "vitest",
@@ -24,18 +30,21 @@
     "typecheck": "tsc",
     "typegen": "wrangler types",
     "preview": "pnpm run build && pnpm run start",
-    "prepare": "husky"
+    "prepare": "husky",
+    "electron:build": "npm run build && npm run build:electron && electron-builder --config electron-builder.config.js",
+    "electron:pack": "npm run build && npm run build:electron && electron-builder --dir --config electron-builder.config.js",
+    "electron:dist": "npm run build && npm run build:electron && electron-builder -mwl --config electron-builder.config.js"
   },
   "engines": {
     "node": ">=18.18.0"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "1.0.6",
     "@ai-sdk/anthropic": "^0.0.39",
     "@ai-sdk/cohere": "^1.0.3",
     "@ai-sdk/google": "^0.0.52",
     "@ai-sdk/mistral": "^0.0.43",
     "@ai-sdk/openai": "^0.0.66",
-    "@ai-sdk/amazon-bedrock": "1.0.6",
     "@codemirror/autocomplete": "^6.18.3",
     "@codemirror/commands": "^6.7.1",
     "@codemirror/lang-cpp": "^6.0.2",
@@ -67,7 +76,9 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@remix-run/cloudflare": "^2.15.0",
     "@remix-run/cloudflare-pages": "^2.15.0",
+    "@remix-run/express": "^2.15.2",
     "@remix-run/react": "^2.15.0",
+    "@remix-run/server-runtime": "^2.15.2",
     "@uiw/codemirror-theme-vscode": "^4.23.6",
     "@unocss/reset": "^0.61.9",
     "@webcontainer/api": "1.3.0-internal.10",
@@ -79,6 +90,8 @@
     "date-fns": "^3.6.0",
     "diff": "^5.2.0",
     "dotenv": "^16.4.7",
+    "electron-log": "^5.2.4",
+    "express": "^4.21.2",
     "file-saver": "^2.0.5",
     "framer-motion": "^11.12.0",
     "ignore": "^6.0.2",
@@ -102,7 +115,9 @@
     "remix-island": "^0.2.0",
     "remix-utils": "^7.7.0",
     "shiki": "^1.24.0",
-    "unist-util-visit": "^5.0.0"
+    "unist-util-visit": "^5.0.0",
+    "vite-plugin-node-polyfills": "^0.22.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@blitz/eslint-plugin": "0.1.0",
@@ -110,10 +125,15 @@
     "@remix-run/dev": "^2.15.0",
     "@types/diff": "^5.2.3",
     "@types/dom-speech-recognition": "^0.0.4",
+    "@types/express": "^5.0.0",
     "@types/file-saver": "^2.0.7",
     "@types/js-cookie": "^3.0.6",
+    "@types/node": "^22.10.7",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-builder-squirrel-windows": "^25.1.8",
     "fast-glob": "^3.3.2",
     "husky": "9.1.7",
     "is-ci": "^3.0.1",
@@ -125,12 +145,10 @@
     "unified": "^11.0.5",
     "unocss": "^0.61.9",
     "vite": "^5.4.11",
-    "vite-plugin-node-polyfills": "^0.22.0",
     "vite-plugin-optimize-css-modules": "^1.1.0",
     "vite-tsconfig-paths": "^4.3.2",
     "vitest": "^2.1.7",
-    "wrangler": "^3.91.0",
-    "zod": "^3.23.8"
+    "wrangler": "^3.91.0"
   },
   "resolutions": {
     "@typescript-eslint/utils": "^8.0.0-alpha.30"

@@ -1,4 +1,4 @@
-import { json } from '@remix-run/cloudflare';
+import { json } from '@remix-run/server-runtime';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from '@remix-run/cloudflare';
 
 // Handle all HTTP methods

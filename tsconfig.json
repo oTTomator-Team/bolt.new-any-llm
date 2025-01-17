@@ -28,6 +28,6 @@
     "**/.server/**/*.ts",
     "**/.server/**/*.tsx",
     "**/.client/**/*.ts",
-    "**/.client/**/*.tsx"
-  ]
+    "**/.client/**/*.tsx"],
+    "exclude": ["electron/**"]
 }

@@ -37,6 +37,7 @@ export default defineConfig((config) => {
       }),
       config.mode !== 'test' && remixCloudflareDevProxy(),
       remixVitePlugin({
+        // serverModuleFormat:'esm', 
         future: {
           v3_fetcherPersist: true,
           v3_relativeSplatPath: true,
