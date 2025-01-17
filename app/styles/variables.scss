@@ -219,7 +219,7 @@
   --header-height: 54px;
   --chat-max-width: 37rem;
   --chat-min-width: 640px;
-  --workbench-width: min(calc(100% - var(--chat-min-width)), 1536px);
+  --workbench-width: min(calc(100% - var(--chat-min-width)), 2536px);
   --workbench-inner-width: var(--workbench-width);
   --workbench-left: calc(100% - var(--workbench-width));
 

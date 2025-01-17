@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { Markdown } from './Markdown';
 import type { JSONValue } from 'ai';
+import type { ProgressAnnotation } from '~/types/context';
+import Popover from '~/components/ui/Popover';
 
 interface AssistantMessageProps {
   content: string;
@@ -10,7 +12,12 @@ interface AssistantMessageProps {
 export const AssistantMessage = memo(({ content, annotations }: AssistantMessageProps) => {
   const filteredAnnotations = (annotations?.filter(
     (annotation: JSONValue) => annotation && typeof annotation === 'object' && Object.keys(annotation).includes('type'),
-  ) || []) as { type: string; value: any }[];
+  ) || []) as { type: string; value: any } & { [key: string]: any }[];
+
+  let progressAnnotation: ProgressAnnotation[] = filteredAnnotations.filter(
+    (annotation) => annotation.type === 'progress',
+  ) as ProgressAnnotation[];
+  progressAnnotation = progressAnnotation.sort((a, b) => b.value - a.value);
 
   const usage: {
     completionTokens: number;
@@ -20,11 +27,18 @@ export const AssistantMessage = memo(({ content, annotations }: AssistantMessage
 
   return (
     <div className="overflow-hidden w-full">
-      {usage && (
-        <div className="text-sm text-bolt-elements-textSecondary mb-2">
-          Tokens: {usage.totalTokens} (prompt: {usage.promptTokens}, completion: {usage.completionTokens})
+      <>
+        <div className=" flex gap-2 items-center text-sm text-bolt-elements-textSecondary mb-2">
+          {progressAnnotation.length > 0 && (
+            <Popover trigger={<div className="i-ph:info" />}>{progressAnnotation[0].message}</Popover>
+          )}
+          {usage && (
+            <div>
+              Tokens: {usage.totalTokens} (prompt: {usage.promptTokens}, completion: {usage.completionTokens})
+            </div>
+          )}
         </div>
-      )}
+      </>
       <Markdown html>{content}</Markdown>
     </div>
   );

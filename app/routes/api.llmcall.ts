@@ -3,7 +3,7 @@ import { type ActionFunctionArgs } from '@remix-run/cloudflare';
 //import { StreamingTextResponse, parseStreamPart } from 'ai';
 import { streamText } from '~/lib/.server/llm/stream-text';
 import type { IProviderSetting, ProviderInfo } from '~/types/model';
-import { generateText } from 'ai';
+import { generateId, generateText } from 'ai';
 import { getModelList, PROVIDER_LIST } from '~/utils/constants';
 import { MAX_TOKENS } from '~/lib/.server/llm/constants';
 
@@ -73,6 +73,7 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
         },
         messages: [
           {
+            id: generateId(),
             role: 'user',
             content: `${message}`,
           },
