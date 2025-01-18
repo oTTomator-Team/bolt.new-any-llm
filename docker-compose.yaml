@@ -36,6 +36,8 @@ services:
   app-dev:
     image: bolt-ai:development
     build:
+      context: .
+      dockerfile: Dockerfile
       target: bolt-ai-development
     environment:
       - NODE_ENV=development
