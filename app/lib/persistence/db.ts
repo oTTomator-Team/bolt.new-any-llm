@@ -2,6 +2,11 @@ import type { Message } from 'ai';
 import { createScopedLogger } from '~/utils/logger';
 import type { ChatHistoryItem } from './useChatHistory';
 
+export interface IChatMetadata {
+  gitUrl: string;
+  gitBranch?: string;
+}
+
 const logger = createScopedLogger('ChatHistory');
 
 // this is used at the top level and never rejects
@@ -53,6 +58,7 @@ export async function setMessages(
   urlId?: string,
   description?: string,
   timestamp?: string,
+  metadata?: IChatMetadata,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('chats', 'readwrite');
@@ -69,6 +75,7 @@ export async function setMessages(
       urlId,
       description,
       timestamp: timestamp ?? new Date().toISOString(),
+      metadata,
     });
 
     request.onsuccess = () => resolve();
@@ -204,6 +211,7 @@ export async function createChatFromMessages(
   db: IDBDatabase,
   description: string,
   messages: Message[],
+  metadata?: IChatMetadata,
 ): Promise<string> {
   const newId = await getNextId(db);
   const newUrlId = await getUrlId(db, newId); // Get a new urlId for the duplicated chat
@@ -214,6 +222,8 @@ export async function createChatFromMessages(
     messages,
     newUrlId, // Use the new urlId
     description,
+    undefined, // Use the current timestamp
+    metadata,
   );
 
   return newUrlId; // Return the urlId instead of id for navigation
@@ -230,5 +240,19 @@ export async function updateChatDescription(db: IDBDatabase, id: string, descrip
     throw new Error('Description cannot be empty');
   }
 
-  await setMessages(db, id, chat.messages, chat.urlId, description, chat.timestamp);
+  await setMessages(db, id, chat.messages, chat.urlId, description, chat.timestamp, chat.metadata);
+}
+
+export async function updateChatMetadata(
+  db: IDBDatabase,
+  id: string,
+  metadata: IChatMetadata | undefined,
+): Promise<void> {
+  const chat = await getMessages(db, id);
+
+  if (!chat) {
+    throw new Error('Chat not found');
+  }
+
+  await setMessages(db, id, chat.messages, chat.urlId, chat.description, chat.timestamp, metadata);
 }

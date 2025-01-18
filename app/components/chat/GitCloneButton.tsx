@@ -6,6 +6,7 @@ import { generateId } from '~/utils/fileUtils';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { LoadingOverlay } from '~/components/ui/LoadingOverlay';
+import type { IChatMetadata } from '~/lib/persistence';
 
 const IGNORE_PATTERNS = [
   'node_modules/**',
@@ -35,7 +36,7 @@ const ig = ignore().add(IGNORE_PATTERNS);
 
 interface GitCloneButtonProps {
   className?: string;
-  importChat?: (description: string, messages: Message[]) => Promise<void>;
+  importChat?: (description: string, messages: Message[], metadata?: IChatMetadata) => Promise<void>;
 }
 
 export default function GitCloneButton({ importChat }: GitCloneButtonProps) {
@@ -98,7 +99,7 @@ ${file.content}
             messages.push(commandsMessage);
           }
 
-          await importChat(`Git Project:${repoUrl.split('/').slice(-1)[0]}`, messages);
+          await importChat(`Git Project:${repoUrl.split('/').slice(-1)[0]}`, messages, { gitUrl: repoUrl });
         }
       } catch (error) {
         console.error('Error during import:', error);

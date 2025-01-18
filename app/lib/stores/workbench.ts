@@ -434,7 +434,7 @@ export class WorkbenchStore {
     return syncedFiles;
   }
 
-  async pushToGitHub(repoName: string, githubUsername?: string, ghToken?: string) {
+  async pushToGitHub(repoName: string, commitMessage?: string, githubUsername?: string, ghToken?: string) {
     try {
       // Use cookies if username and token are not provided
       const githubToken = ghToken || Cookies.get('githubToken');
@@ -523,7 +523,7 @@ export class WorkbenchStore {
       const { data: newCommit } = await octokit.git.createCommit({
         owner: repo.owner.login,
         repo: repo.name,
-        message: 'Initial commit from your app',
+        message: commitMessage || 'Initial commit from your app',
         tree: newTree.sha,
         parents: [latestCommitSha],
       });

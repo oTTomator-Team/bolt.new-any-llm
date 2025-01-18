@@ -13,6 +13,7 @@ import {
   setMessages,
   duplicateChat,
   createChatFromMessages,
+  type IChatMetadata,
 } from './db';
 
 export interface ChatHistoryItem {
@@ -21,6 +22,7 @@ export interface ChatHistoryItem {
   description?: string;
   messages: Message[];
   timestamp: string;
+  metadata?: IChatMetadata;
 }
 
 const persistenceEnabled = !import.meta.env.VITE_DISABLE_PERSISTENCE;
@@ -29,7 +31,7 @@ export const db = persistenceEnabled ? await openDatabase() : undefined;
 
 export const chatId = atom<string | undefined>(undefined);
 export const description = atom<string | undefined>(undefined);
-
+export const chatMetadata = atom<IChatMetadata | undefined>(undefined);
 export function useChatHistory() {
   const navigate = useNavigate();
   const { id: mixedId } = useLoaderData<{ id?: string }>();
@@ -65,6 +67,7 @@ export function useChatHistory() {
             setUrlId(storedMessages.urlId);
             description.set(storedMessages.description);
             chatId.set(storedMessages.id);
+            chatMetadata.set(storedMessages.metadata);
           } else {
             navigate('/', { replace: true });
           }
@@ -81,6 +84,21 @@ export function useChatHistory() {
   return {
     ready: !mixedId || ready,
     initialMessages,
+    updateChatMestaData: async (metadata: IChatMetadata) => {
+      const id = chatId.get();
+
+      if (!db || !id) {
+        return;
+      }
+
+      try {
+        await setMessages(db, id, initialMessages, urlId, description.get(), undefined, metadata);
+        chatMetadata.set(metadata);
+      } catch (error) {
+        toast.error('Failed to update chat metadata');
+        console.error(error);
+      }
+    },
     storeMessageHistory: async (messages: Message[]) => {
       if (!db || messages.length === 0) {
         return;
@@ -109,7 +127,7 @@ export function useChatHistory() {
         }
       }
 
-      await setMessages(db, chatId.get() as string, messages, urlId, description.get());
+      await setMessages(db, chatId.get() as string, messages, urlId, description.get(), undefined, chatMetadata.get());
     },
     duplicateCurrentChat: async (listItemId: string) => {
       if (!db || (!mixedId && !listItemId)) {
@@ -125,13 +143,13 @@ export function useChatHistory() {
         console.log(error);
       }
     },
-    importChat: async (description: string, messages: Message[]) => {
+    importChat: async (description: string, messages: Message[], metadata?: IChatMetadata) => {
       if (!db) {
         return;
       }
 
       try {
-        const newId = await createChatFromMessages(db, description, messages);
+        const newId = await createChatFromMessages(db, description, messages, metadata);
         window.location.href = `/chat/${newId}`;
         toast.success('Chat imported successfully');
       } catch (error) {
