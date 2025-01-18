@@ -38,6 +38,10 @@ export function Chat() {
   const title = useStore(description);
   useEffect(() => {
     workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
+    workbenchStore.initializeSession().catch((error) => {
+      logger.error('Failed to initialize sync session:', error);
+      toast.error('Failed to initialize sync session');
+    });
   }, [initialMessages]);
 
   return (

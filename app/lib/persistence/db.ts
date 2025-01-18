@@ -3,12 +3,20 @@ import { createScopedLogger } from '~/utils/logger';
 import type { ChatHistoryItem } from './useChatHistory';
 
 const logger = createScopedLogger('ChatHistory');
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 100; // ms
+
+let dbInstance: IDBDatabase | undefined;
 
 // this is used at the top level and never rejects
 export async function openDatabase(): Promise<IDBDatabase | undefined> {
   if (typeof indexedDB === 'undefined') {
     console.error('indexedDB is not available in this environment.');
     return undefined;
+  }
+
+  if (dbInstance) {
+    return dbInstance;
   }
 
   return new Promise((resolve) => {
@@ -25,7 +33,20 @@ export async function openDatabase(): Promise<IDBDatabase | undefined> {
     };
 
     request.onsuccess = (event: Event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
+      dbInstance = (event.target as IDBOpenDBRequest).result;
+
+      // Handle connection closing
+      dbInstance.onclose = () => {
+        dbInstance = undefined;
+      };
+
+      // Handle version change
+      dbInstance.onversionchange = () => {
+        dbInstance?.close();
+        dbInstance = undefined;
+      };
+
+      resolve(dbInstance);
     };
 
     request.onerror = (event: Event) => {
@@ -35,15 +56,44 @@ export async function openDatabase(): Promise<IDBDatabase | undefined> {
   });
 }
 
-export async function getAll(db: IDBDatabase): Promise<ChatHistoryItem[]> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction('chats', 'readonly');
-    const store = transaction.objectStore('chats');
-    const request = store.getAll();
+async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError;
 
-    request.onsuccess = () => resolve(request.result as ChatHistoryItem[]);
-    request.onerror = () => reject(request.error);
-  });
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      // If database is closed, try to reopen it
+      if (!dbInstance) {
+        await openDatabase();
+      }
+
+      return await operation();
+    } catch (error) {
+      lastError = error;
+
+      if (error instanceof Error && error.name === 'InvalidStateError') {
+        dbInstance = undefined;
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
+export async function getAll(db: IDBDatabase): Promise<ChatHistoryItem[]> {
+  return withRetry(
+    () =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction('chats', 'readonly');
+        const store = transaction.objectStore('chats');
+        const request = store.getAll();
+
+        request.onsuccess = () => resolve(request.result as ChatHistoryItem[]);
+        request.onerror = () => reject(request.error);
+      }),
+  );
 }
 
 export async function setMessages(
@@ -54,26 +104,29 @@ export async function setMessages(
   description?: string,
   timestamp?: string,
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction('chats', 'readwrite');
-    const store = transaction.objectStore('chats');
+  return withRetry(
+    () =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction('chats', 'readwrite');
+        const store = transaction.objectStore('chats');
 
-    if (timestamp && isNaN(Date.parse(timestamp))) {
-      reject(new Error('Invalid timestamp'));
-      return;
-    }
+        if (timestamp && isNaN(Date.parse(timestamp))) {
+          reject(new Error('Invalid timestamp'));
+          return;
+        }
 
-    const request = store.put({
-      id,
-      messages,
-      urlId,
-      description,
-      timestamp: timestamp ?? new Date().toISOString(),
-    });
+        const request = store.put({
+          id,
+          messages,
+          urlId,
+          description,
+          timestamp: timestamp ?? new Date().toISOString(),
+        });
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      }),
+  );
 }
 
 export async function getMessages(db: IDBDatabase, id: string): Promise<ChatHistoryItem> {

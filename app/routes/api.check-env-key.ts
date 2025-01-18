@@ -1,7 +1,17 @@
-import type { LoaderFunction } from '@remix-run/cloudflare';
+import type { LoaderFunctionArgs } from '@remix-run/cloudflare';
 import { providerBaseUrlEnvKeys } from '~/utils/constants';
 
-export const loader: LoaderFunction = async ({ context, request }) => {
+interface Env {
+  [key: string]: string | undefined;
+}
+
+interface CloudflareContext {
+  cloudflare?: {
+    env: Env;
+  };
+}
+
+export const loader = async ({ context, request }: LoaderFunctionArgs & { context: CloudflareContext }) => {
   const url = new URL(request.url);
   const provider = url.searchParams.get('provider');
 
@@ -10,7 +20,7 @@ export const loader: LoaderFunction = async ({ context, request }) => {
   }
 
   const envVarName = providerBaseUrlEnvKeys[provider].apiTokenKey;
-  const isSet = !!(process.env[envVarName] || (context?.cloudflare?.env as Record<string, any>)?.[envVarName]);
+  const isSet = !!(process.env[envVarName] || context?.cloudflare?.env?.[envVarName]);
 
   return Response.json({ isSet });
 };

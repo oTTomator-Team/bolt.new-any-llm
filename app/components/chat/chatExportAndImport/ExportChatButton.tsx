@@ -4,7 +4,7 @@ import React from 'react';
 
 export const ExportChatButton = ({ exportChat }: { exportChat?: () => void }) => {
   return (
-    <WithTooltip tooltip="Export Chat">
+    <WithTooltip content="Export chat history">
       <IconButton title="Export Chat" onClick={() => exportChat?.()}>
         <div className="i-ph:download-simple text-xl"></div>
       </IconButton>

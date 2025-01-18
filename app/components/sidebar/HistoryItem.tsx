@@ -121,7 +121,7 @@ const ChatActionButton = forwardRef(
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
     return (
-      <WithTooltip tooltip={toolTipContent}>
+      <WithTooltip content={toolTipContent}>
         <button
           ref={ref}
           type="button"
