@@ -1,388 +1,422 @@
-import React, { useState } from 'react';
-import { useNavigate } from '@remix-run/react';
-import Cookies from 'js-cookie';
+import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { db, deleteById, getAll, setMessages } from '~/lib/persistence';
-import { logStore } from '~/lib/stores/logs';
-import { classNames } from '~/utils/classNames';
-import type { Message } from 'ai';
-
-// List of supported providers that can have API keys
-const API_KEY_PROVIDERS = [
-  'Anthropic',
-  'OpenAI',
-  'Google',
-  'Groq',
-  'HuggingFace',
-  'OpenRouter',
-  'Deepseek',
-  'Mistral',
-  'OpenAILike',
-  'Together',
-  'xAI',
-  'Perplexity',
-  'Cohere',
-  'AzureOpenAI',
-  'AmazonBedrock',
-] as const;
-
-interface ApiKeys {
-  [key: string]: string;
-}
+import { DialogRoot, DialogClose, Dialog, DialogTitle } from '~/components/ui/Dialog';
+import { db, getAll } from '~/lib/persistence';
 
 export default function DataTab() {
-  const navigate = useNavigate();
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  const [isImportingKeys, setIsImportingKeys] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const downloadAsJson = (data: any, filename: string) => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  const [showResetInlineConfirm, setShowResetInlineConfirm] = useState(false);
+  const [showDeleteInlineConfirm, setShowDeleteInlineConfirm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const apiKeyFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportAllChats = async () => {
-    if (!db) {
-      const error = new Error('Database is not available');
-      logStore.logError('Failed to export chats - DB unavailable', error);
-      toast.error('Database is not available');
-
-      return;
-    }
-
     try {
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
+
+      // Get all chats from IndexedDB
       const allChats = await getAll(db);
       const exportData = {
         chats: allChats,
         exportDate: new Date().toISOString(),
       };
 
-      downloadAsJson(exportData, `all-chats-${new Date().toISOString()}.json`);
-      logStore.logSystem('Chats exported successfully', { count: allChats.length });
+      // Download as JSON
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bolt-chats-${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
       toast.success('Chats exported successfully');
     } catch (error) {
-      logStore.logError('Failed to export chats', error);
+      console.error('Export error:', error);
       toast.error('Failed to export chats');
-      console.error(error);
     }
   };
 
-  const handleDeleteAllChats = async () => {
-    const confirmDelete = window.confirm('Are you sure you want to delete all chats? This action cannot be undone.');
+  const handleExportSettings = () => {
+    try {
+      const settings = {
+        userProfile: localStorage.getItem('bolt_user_profile'),
+        settings: localStorage.getItem('bolt_settings'),
+        exportDate: new Date().toISOString(),
+      };
 
-    if (!confirmDelete) {
-      return;
+      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bolt-settings-${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Settings exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export settings');
     }
+  };
 
-    if (!db) {
-      const error = new Error('Database is not available');
-      logStore.logError('Failed to delete chats - DB unavailable', error);
-      toast.error('Database is not available');
+  const handleImportSettings = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
 
+    if (!file) {
       return;
     }
 
     try {
-      setIsDeleting(true);
+      const content = await file.text();
+      const settings = JSON.parse(content);
 
-      const allChats = await getAll(db);
-      await Promise.all(allChats.map((chat) => deleteById(db!, chat.id)));
-      logStore.logSystem('All chats deleted successfully', { count: allChats.length });
-      toast.success('All chats deleted successfully');
-      navigate('/', { replace: true });
+      if (settings.userProfile) {
+        localStorage.setItem('bolt_user_profile', settings.userProfile);
+      }
+
+      if (settings.settings) {
+        localStorage.setItem('bolt_settings', settings.settings);
+      }
+
+      window.location.reload(); // Reload to apply settings
+      toast.success('Settings imported successfully');
     } catch (error) {
-      logStore.logError('Failed to delete chats', error);
-      toast.error('Failed to delete chats');
-      console.error(error);
+      console.error('Import error:', error);
+      toast.error('Failed to import settings');
+    }
+  };
+
+  const handleImportAPIKeys = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setIsImportingKeys(true);
+
+    try {
+      const content = await file.text();
+      const keys = JSON.parse(content);
+
+      // Validate and save each key
+      Object.entries(keys).forEach(([key, value]) => {
+        if (typeof value !== 'string') {
+          throw new Error(`Invalid value for key: ${key}`);
+        }
+
+        localStorage.setItem(`bolt_${key.toLowerCase()}`, value);
+      });
+
+      toast.success('API keys imported successfully');
+    } catch (error) {
+      console.error('Error importing API keys:', error);
+      toast.error('Failed to import API keys');
+    } finally {
+      setIsImportingKeys(false);
+
+      if (apiKeyFileInputRef.current) {
+        apiKeyFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    setIsDownloadingTemplate(true);
+
+    try {
+      const template = {
+        Anthropic_API_KEY: '',
+        OpenAI_API_KEY: '',
+        Google_API_KEY: '',
+        Groq_API_KEY: '',
+        HuggingFace_API_KEY: '',
+        OpenRouter_API_KEY: '',
+        Deepseek_API_KEY: '',
+        Mistral_API_KEY: '',
+        OpenAILike_API_KEY: '',
+        Together_API_KEY: '',
+        xAI_API_KEY: '',
+        Perplexity_API_KEY: '',
+        Cohere_API_KEY: '',
+        AzureOpenAI_API_KEY: '',
+        OPENAI_LIKE_API_BASE_URL: '',
+        LMSTUDIO_API_BASE_URL: '',
+        OLLAMA_API_BASE_URL: '',
+        TOGETHER_API_BASE_URL: '',
+      };
+
+      const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bolt-api-keys-template.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Template downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast.error('Failed to download template');
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
+  const handleResetSettings = async () => {
+    setIsResetting(true);
+
+    try {
+      // Clear all stored settings
+      localStorage.removeItem('bolt_user_profile');
+      localStorage.removeItem('bolt_settings');
+      localStorage.removeItem('bolt_chat_history');
+
+      // Reload the page to apply reset
+      window.location.reload();
+      toast.success('Settings reset successfully');
+    } catch (error) {
+      console.error('Reset error:', error);
+      toast.error('Failed to reset settings');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleDeleteAllChats = async () => {
+    setIsDeleting(true);
+
+    try {
+      // Clear chat history
+      localStorage.removeItem('bolt_chat_history');
+      toast.success('Chat history deleted successfully');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete chat history');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleExportSettings = () => {
-    const settings = {
-      providers: Cookies.get('providers'),
-      isDebugEnabled: Cookies.get('isDebugEnabled'),
-      isEventLogsEnabled: Cookies.get('isEventLogsEnabled'),
-      isLocalModelsEnabled: Cookies.get('isLocalModelsEnabled'),
-      promptId: Cookies.get('promptId'),
-      isLatestBranch: Cookies.get('isLatestBranch'),
-      commitHash: Cookies.get('commitHash'),
-      eventLogs: Cookies.get('eventLogs'),
-      selectedModel: Cookies.get('selectedModel'),
-      selectedProvider: Cookies.get('selectedProvider'),
-      githubUsername: Cookies.get('githubUsername'),
-      githubToken: Cookies.get('githubToken'),
-      bolt_theme: localStorage.getItem('bolt_theme'),
-    };
-
-    downloadAsJson(settings, 'bolt-settings.json');
-    toast.success('Settings exported successfully');
-  };
-
-  const handleImportSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      try {
-        const settings = JSON.parse(e.target?.result as string);
-
-        Object.entries(settings).forEach(([key, value]) => {
-          if (key === 'bolt_theme') {
-            if (value) {
-              localStorage.setItem(key, value as string);
-            }
-          } else if (value) {
-            Cookies.set(key, value as string);
-          }
-        });
-
-        toast.success('Settings imported successfully. Please refresh the page for changes to take effect.');
-      } catch (error) {
-        toast.error('Failed to import settings. Make sure the file is a valid JSON file.');
-        console.error('Failed to import settings:', error);
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  };
-
-  const handleExportApiKeyTemplate = () => {
-    const template: ApiKeys = {};
-    API_KEY_PROVIDERS.forEach((provider) => {
-      template[`${provider}_API_KEY`] = '';
-    });
-
-    template.OPENAI_LIKE_API_BASE_URL = '';
-    template.LMSTUDIO_API_BASE_URL = '';
-    template.OLLAMA_API_BASE_URL = '';
-    template.TOGETHER_API_BASE_URL = '';
-
-    downloadAsJson(template, 'api-keys-template.json');
-    toast.success('API keys template exported successfully');
-  };
-
-  const handleImportApiKeys = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      try {
-        const apiKeys = JSON.parse(e.target?.result as string);
-        let importedCount = 0;
-        const consolidatedKeys: Record<string, string> = {};
-
-        API_KEY_PROVIDERS.forEach((provider) => {
-          const keyName = `${provider}_API_KEY`;
-
-          if (apiKeys[keyName]) {
-            consolidatedKeys[provider] = apiKeys[keyName];
-            importedCount++;
-          }
-        });
-
-        if (importedCount > 0) {
-          // Store all API keys in a single cookie as JSON
-          Cookies.set('apiKeys', JSON.stringify(consolidatedKeys));
-
-          // Also set individual cookies for backward compatibility
-          Object.entries(consolidatedKeys).forEach(([provider, key]) => {
-            Cookies.set(`${provider}_API_KEY`, key);
-          });
-
-          toast.success(`Successfully imported ${importedCount} API keys/URLs. Refreshing page to apply changes...`);
-
-          // Reload the page after a short delay to allow the toast to be seen
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-        } else {
-          toast.warn('No valid API keys found in the file');
-        }
-
-        // Set base URLs if they exist
-        ['OPENAI_LIKE_API_BASE_URL', 'LMSTUDIO_API_BASE_URL', 'OLLAMA_API_BASE_URL', 'TOGETHER_API_BASE_URL'].forEach(
-          (baseUrl) => {
-            if (apiKeys[baseUrl]) {
-              Cookies.set(baseUrl, apiKeys[baseUrl]);
-            }
-          },
-        );
-      } catch (error) {
-        toast.error('Failed to import API keys. Make sure the file is a valid JSON file.');
-        console.error('Failed to import API keys:', error);
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  };
-
-  const processChatData = (
-    data: any,
-  ): Array<{
-    id: string;
-    messages: Message[];
-    description: string;
-    urlId?: string;
-  }> => {
-    // Handle Bolt standard format (single chat)
-    if (data.messages && Array.isArray(data.messages)) {
-      const chatId = crypto.randomUUID();
-      return [
-        {
-          id: chatId,
-          messages: data.messages,
-          description: data.description || 'Imported Chat',
-          urlId: chatId,
-        },
-      ];
-    }
-
-    // Handle Bolt export format (multiple chats)
-    if (data.chats && Array.isArray(data.chats)) {
-      return data.chats.map((chat: { id?: string; messages: Message[]; description?: string; urlId?: string }) => ({
-        id: chat.id || crypto.randomUUID(),
-        messages: chat.messages,
-        description: chat.description || 'Imported Chat',
-        urlId: chat.urlId,
-      }));
-    }
-
-    console.error('No matching format found for:', data);
-    throw new Error('Unsupported chat format');
-  };
-
-  const handleImportChats = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-
-      if (!file || !db) {
-        toast.error('Something went wrong');
-        return;
-      }
-
-      try {
-        const content = await file.text();
-        const data = JSON.parse(content);
-        const chatsToImport = processChatData(data);
-
-        for (const chat of chatsToImport) {
-          await setMessages(db, chat.id, chat.messages, chat.urlId, chat.description);
-        }
-
-        logStore.logSystem('Chats imported successfully', { count: chatsToImport.length });
-        toast.success(`Successfully imported ${chatsToImport.length} chat${chatsToImport.length > 1 ? 's' : ''}`);
-        window.location.reload();
-      } catch (error) {
-        if (error instanceof Error) {
-          logStore.logError('Failed to import chats:', error);
-          toast.error('Failed to import chats: ' + error.message);
-        } else {
-          toast.error('Failed to import chats');
-        }
-
-        console.error(error);
-      }
-    };
-
-    input.click();
-  };
-
   return (
-    <div className="p-4 bg-bolt-elements-bg-depth-2 border border-bolt-elements-borderColor rounded-lg mb-4">
-      <div className="mb-6">
-        <h3 className="text-lg font-medium text-bolt-elements-textPrimary mb-4">Data Management</h3>
-        <div className="space-y-8">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h4 className="text-bolt-elements-textPrimary mb-2">Chat History</h4>
-              <p className="text-sm text-bolt-elements-textSecondary mb-4">Export or delete all your chat history.</p>
-              <div className="flex gap-4">
-                <button
-                  onClick={handleExportAllChats}
-                  className="px-4 py-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-textPrimary rounded-lg transition-colors"
-                >
-                  Export All Chats
-                </button>
-                <button
-                  onClick={handleImportChats}
-                  className="px-4 py-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-textPrimary rounded-lg transition-colors"
-                >
-                  Import Chats
-                </button>
-                <button
-                  onClick={handleDeleteAllChats}
-                  disabled={isDeleting}
-                  className={classNames(
-                    'px-4 py-2 bg-bolt-elements-button-danger-background hover:bg-bolt-elements-button-danger-backgroundHover text-bolt-elements-button-danger-text rounded-lg transition-colors',
-                    isDeleting ? 'opacity-50 cursor-not-allowed' : '',
-                  )}
-                >
-                  {isDeleting ? 'Deleting...' : 'Delete All Chats'}
-                </button>
-              </div>
+    <div className="space-y-6">
+      <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportSettings} className="hidden" />
+      {/* Reset Settings Dialog */}
+      <DialogRoot open={showResetInlineConfirm} onOpenChange={setShowResetInlineConfirm}>
+        <Dialog showCloseButton={false}>
+          <div className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="i-ph:warning-circle-fill w-5 h-5 text-yellow-500" />
+              <DialogTitle>Reset All Settings?</DialogTitle>
             </div>
-
-            <div>
-              <h4 className="text-bolt-elements-textPrimary mb-2">Settings Backup</h4>
-              <p className="text-sm text-bolt-elements-textSecondary mb-4">
-                Export your settings to a JSON file or import settings from a previously exported file.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={handleExportSettings}
-                  className="px-4 py-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-textPrimary rounded-lg transition-colors"
-                >
-                  Export Settings
+            <p className="text-sm text-bolt-elements-textSecondary mt-2">
+              This will reset all your settings to their default values. This action cannot be undone.
+            </p>
+            <div className="flex justify-end items-center gap-3 mt-6">
+              <DialogClose asChild>
+                <button className="px-4 py-2 rounded-lg text-sm bg-[#F5F5F5] dark:bg-[#1A1A1A] text-[#666666] dark:text-[#999999] hover:text-[#333333] dark:hover:text-white">
+                  Cancel
                 </button>
-                <label className="px-4 py-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-textPrimary rounded-lg transition-colors cursor-pointer">
-                  Import Settings
-                  <input type="file" accept=".json" onChange={handleImportSettings} className="hidden" />
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-bolt-elements-textPrimary mb-2">API Keys Management</h4>
-              <p className="text-sm text-bolt-elements-textSecondary mb-4">
-                Import API keys from a JSON file or download a template to fill in your keys.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={handleExportApiKeyTemplate}
-                  className="px-4 py-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-textPrimary rounded-lg transition-colors"
-                >
-                  Download Template
-                </button>
-                <label className="px-4 py-2 bg-bolt-elements-button-primary-background hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-textPrimary rounded-lg transition-colors cursor-pointer">
-                  Import API Keys
-                  <input type="file" accept=".json" onChange={handleImportApiKeys} className="hidden" />
-                </label>
-              </div>
+              </DialogClose>
+              <motion.button
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-white dark:bg-[#1A1A1A] text-yellow-600 dark:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 border border-transparent hover:border-yellow-500/10 dark:hover:border-yellow-500/20"
+                onClick={handleResetSettings}
+                disabled={isResetting}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isResetting ? (
+                  <div className="i-ph:spinner-gap-bold animate-spin w-4 h-4" />
+                ) : (
+                  <div className="i-ph:arrow-counter-clockwise w-4 h-4" />
+                )}
+                Reset Settings
+              </motion.button>
             </div>
           </div>
+        </Dialog>
+      </DialogRoot>
+
+      {/* Delete Confirmation Dialog */}
+      <DialogRoot open={showDeleteInlineConfirm} onOpenChange={setShowDeleteInlineConfirm}>
+        <Dialog showCloseButton={false}>
+          <div className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="i-ph:warning-circle-fill w-5 h-5 text-red-500" />
+              <DialogTitle>Delete All Chats?</DialogTitle>
+            </div>
+            <p className="text-sm text-bolt-elements-textSecondary mt-2">
+              This will permanently delete all your chat history. This action cannot be undone.
+            </p>
+            <div className="flex justify-end items-center gap-3 mt-6">
+              <DialogClose asChild>
+                <button className="px-4 py-2 rounded-lg text-sm bg-[#F5F5F5] dark:bg-[#1A1A1A] text-[#666666] dark:text-[#999999] hover:text-[#333333] dark:hover:text-white">
+                  Cancel
+                </button>
+              </DialogClose>
+              <motion.button
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-white dark:bg-[#1A1A1A] text-red-500 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 border border-transparent hover:border-red-500/10 dark:hover:border-red-500/20"
+                onClick={handleDeleteAllChats}
+                disabled={isDeleting}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isDeleting ? (
+                  <div className="i-ph:spinner-gap-bold animate-spin w-4 h-4" />
+                ) : (
+                  <div className="i-ph:trash w-4 h-4" />
+                )}
+                Delete All
+              </motion.button>
+            </div>
+          </div>
+        </Dialog>
+      </DialogRoot>
+
+      {/* Chat History Section */}
+      <motion.div
+        className="bg-white dark:bg-[#0A0A0A] rounded-lg p-6 border border-[#E5E5E5] dark:border-[#1A1A1A]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div className="i-ph:chat-circle-duotone w-5 h-5 text-purple-500" />
+          <h3 className="text-lg font-medium">Chat History</h3>
         </div>
-      </div>
+        <p className="text-sm text-bolt-elements-textSecondary mb-4">Export or delete all your chat history.</p>
+        <div className="flex gap-4">
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500 text-white text-sm hover:bg-purple-600"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleExportAllChats}
+          >
+            <div className="i-ph:download-simple w-4 h-4" />
+            Export All Chats
+          </motion.button>
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 text-red-500 text-sm hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowDeleteInlineConfirm(true)}
+          >
+            <div className="i-ph:trash w-4 h-4" />
+            Delete All Chats
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* Settings Backup Section */}
+      <motion.div
+        className="bg-white dark:bg-[#0A0A0A] rounded-lg p-6 border border-[#E5E5E5] dark:border-[#1A1A1A]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div className="i-ph:gear-duotone w-5 h-5 text-purple-500" />
+          <h3 className="text-lg font-medium">Settings Backup</h3>
+        </div>
+        <p className="text-sm text-bolt-elements-textSecondary mb-4">
+          Export your settings to a JSON file or import settings from a previously exported file.
+        </p>
+        <div className="flex gap-4">
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500 text-white text-sm hover:bg-purple-600"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleExportSettings}
+          >
+            <div className="i-ph:download-simple w-4 h-4" />
+            Export Settings
+          </motion.button>
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500 text-white text-sm hover:bg-purple-600"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div className="i-ph:upload-simple w-4 h-4" />
+            Import Settings
+          </motion.button>
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-50 text-yellow-600 text-sm hover:bg-yellow-100 dark:bg-yellow-500/10 dark:hover:bg-yellow-500/20"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowResetInlineConfirm(true)}
+          >
+            <div className="i-ph:arrow-counter-clockwise w-4 h-4" />
+            Reset Settings
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* API Keys Management Section */}
+      <motion.div
+        className="bg-white dark:bg-[#0A0A0A] rounded-lg p-6 border border-[#E5E5E5] dark:border-[#1A1A1A]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div className="i-ph:key-duotone w-5 h-5 text-purple-500" />
+          <h3 className="text-lg font-medium">API Keys Management</h3>
+        </div>
+        <p className="text-sm text-bolt-elements-textSecondary mb-4">
+          Import API keys from a JSON file or download a template to fill in your keys.
+        </p>
+        <div className="flex gap-4">
+          <input
+            ref={apiKeyFileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleImportAPIKeys}
+            className="hidden"
+          />
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500 text-white text-sm hover:bg-purple-600"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleDownloadTemplate}
+            disabled={isDownloadingTemplate}
+          >
+            {isDownloadingTemplate ? (
+              <div className="i-ph:spinner-gap-bold animate-spin" />
+            ) : (
+              <div className="i-ph:download-simple w-4 h-4" />
+            )}
+            Download Template
+          </motion.button>
+          <motion.button
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500 text-white text-sm hover:bg-purple-600"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => apiKeyFileInputRef.current?.click()}
+            disabled={isImportingKeys}
+          >
+            {isImportingKeys ? (
+              <div className="i-ph:spinner-gap-bold animate-spin w-4 h-4" />
+            ) : (
+              <div className="i-ph:upload-simple w-4 h-4" />
+            )}
+            Import API Keys
+          </motion.button>
+        </div>
+      </motion.div>
     </div>
   );
 }

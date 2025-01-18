@@ -24,6 +24,11 @@ class LogStore {
     this._loadLogs();
   }
 
+  // Expose the logs store for subscription
+  get logs() {
+    return this._logs;
+  }
+
   private _loadLogs() {
     const savedLogs = Cookies.get('eventLogs');
 

@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useSettings } from '~/lib/hooks/useSettings';
 import { toast } from 'react-toastify';
 import { providerBaseUrlEnvKeys } from '~/utils/constants';
+import { motion } from 'framer-motion';
+import { classNames } from '~/utils/classNames';
+import { settingsStyles } from '~/components/settings/settings.styles';
 
 interface ProviderStatus {
   name: string;
@@ -438,107 +441,182 @@ export default function DebugTab() {
   }, [activeProviders, systemInfo, isLatestBranch]);
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-bolt-elements-textPrimary">Debug Information</h3>
+        <div className="flex items-center gap-2">
+          <div className="i-ph:bug-fill text-xl text-purple-500" />
+          <h3 className="text-lg font-medium text-bolt-elements-textPrimary">Debug Information</h3>
+        </div>
         <div className="flex gap-2">
-          <button
+          <motion.button
             onClick={handleCopyToClipboard}
-            className="bg-bolt-elements-button-primary-background rounded-lg px-4 py-2 transition-colors duration-200 hover:bg-bolt-elements-button-primary-backgroundHover text-bolt-elements-button-primary-text"
+            className={classNames(settingsStyles.button.base, settingsStyles.button.primary)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
+            <div className="i-ph:copy" />
             Copy Debug Info
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={handleCheckForUpdate}
             disabled={isCheckingUpdate}
-            className={`bg-bolt-elements-button-primary-background rounded-lg px-4 py-2 transition-colors duration-200
-              ${!isCheckingUpdate ? 'hover:bg-bolt-elements-button-primary-backgroundHover' : 'opacity-75 cursor-not-allowed'}
-              text-bolt-elements-button-primary-text`}
+            className={classNames(settingsStyles.button.base, settingsStyles.button.primary)}
+            whileHover={!isCheckingUpdate ? { scale: 1.02 } : undefined}
+            whileTap={!isCheckingUpdate ? { scale: 0.98 } : undefined}
           >
-            {isCheckingUpdate ? 'Checking...' : 'Check for Updates'}
-          </button>
+            {isCheckingUpdate ? (
+              <>
+                <div className={settingsStyles['loading-spinner']} />
+                Checking...
+              </>
+            ) : (
+              <>
+                <div className="i-ph:arrow-clockwise" />
+                Check for Updates
+              </>
+            )}
+          </motion.button>
         </div>
       </div>
 
       {updateMessage && (
-        <div
-          className={`bg-bolt-elements-surface rounded-lg p-3 ${
-            updateMessage.includes('Update available') ? 'border-l-4 border-yellow-400' : ''
-          }`}
-        >
-          <p className="text-bolt-elements-textSecondary whitespace-pre-line">{updateMessage}</p>
-          {updateMessage.includes('Update available') && (
-            <div className="mt-3 text-sm">
-              <p className="font-medium text-bolt-elements-textPrimary">To update:</p>
-              <ol className="list-decimal ml-4 mt-1 text-bolt-elements-textSecondary">
-                <li>
-                  Pull the latest changes:{' '}
-                  <code className="bg-bolt-elements-surface-hover px-1 rounded">git pull upstream main</code>
-                </li>
-                <li>
-                  Install any new dependencies:{' '}
-                  <code className="bg-bolt-elements-surface-hover px-1 rounded">pnpm install</code>
-                </li>
-                <li>Restart the application</li>
-              </ol>
-            </div>
+        <motion.div
+          className={classNames(
+            settingsStyles.card,
+            'bg-bolt-elements-background-depth-2',
+            updateMessage.includes('Update available') ? 'border-l-4 border-yellow-500' : '',
           )}
-        </div>
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={classNames(
+                updateMessage.includes('Update available')
+                  ? 'i-ph:warning-fill text-yellow-500'
+                  : 'i-ph:info text-bolt-elements-textSecondary',
+                'text-xl flex-shrink-0',
+              )}
+            />
+            <div className="flex-1">
+              <p className="text-bolt-elements-textSecondary whitespace-pre-line">{updateMessage}</p>
+              {updateMessage.includes('Update available') && (
+                <div className="mt-3">
+                  <p className="font-medium text-bolt-elements-textPrimary">To update:</p>
+                  <ol className="list-decimal ml-4 mt-1 space-y-2">
+                    <li className="text-bolt-elements-textSecondary">
+                      <div className="flex items-center gap-2">
+                        <div className="i-ph:git-branch text-purple-500" />
+                        Pull the latest changes:{' '}
+                        <code className="px-1.5 py-0.5 rounded bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary">
+                          git pull upstream main
+                        </code>
+                      </div>
+                    </li>
+                    <li className="text-bolt-elements-textSecondary">
+                      <div className="flex items-center gap-2">
+                        <div className="i-ph:package text-purple-500" />
+                        Install any new dependencies:{' '}
+                        <code className="px-1.5 py-0.5 rounded bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary">
+                          pnpm install
+                        </code>
+                      </div>
+                    </li>
+                    <li className="text-bolt-elements-textSecondary">
+                      <div className="flex items-center gap-2">
+                        <div className="i-ph:arrows-clockwise text-purple-500" />
+                        Restart the application
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
       )}
 
       <section className="space-y-4">
-        <div>
-          <h4 className="text-md font-medium text-bolt-elements-textPrimary mb-2">System Information</h4>
-          <div className="bg-bolt-elements-surface rounded-lg p-4">
+        <motion.div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="i-ph:desktop text-xl text-purple-500" />
+            <h4 className="text-md font-medium text-bolt-elements-textPrimary">System Information</h4>
+          </div>
+          <motion.div className={classNames(settingsStyles.card, 'bg-bolt-elements-background-depth-2')}>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Operating System</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:computer-tower text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Operating System</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.os}</p>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Device Type</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:device-mobile text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Device Type</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.deviceType}</p>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Browser</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:browser text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Browser</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.browser}</p>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Display</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:monitor text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Display</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">
                   {systemInfo.screen} ({systemInfo.colorDepth}) @{systemInfo.pixelRatio}x
                 </p>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Connection</p>
-                <p className="text-sm font-medium flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:wifi-high text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Connection</p>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
                   <span
-                    className={`inline-block w-2 h-2 rounded-full ${systemInfo.online ? 'bg-green-500' : 'bg-red-500'}`}
+                    className={classNames('w-2 h-2 rounded-full', systemInfo.online ? 'bg-green-500' : 'bg-red-500')}
                   />
-                  <span className={`${systemInfo.online ? 'text-green-600' : 'text-red-600'}`}>
+                  <span
+                    className={classNames('text-sm font-medium', systemInfo.online ? 'text-green-500' : 'text-red-500')}
+                  >
                     {systemInfo.online ? 'Online' : 'Offline'}
                   </span>
-                </p>
+                </div>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Screen Resolution</p>
-                <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.screen}</p>
-              </div>
-              <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Language</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:translate text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Language</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.language}</p>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">Timezone</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:clock text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">Timezone</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.timezone}</p>
               </div>
               <div>
-                <p className="text-xs text-bolt-elements-textSecondary">CPU Cores</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="i-ph:cpu text-bolt-elements-textSecondary" />
+                  <p className="text-xs text-bolt-elements-textSecondary">CPU Cores</p>
+                </div>
                 <p className="text-sm font-medium text-bolt-elements-textPrimary">{systemInfo.cores}</p>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-bolt-elements-surface-hover">
-              <p className="text-xs text-bolt-elements-textSecondary">Version</p>
+            <div className="mt-3 pt-3 border-t border-bolt-elements-borderColor">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="i-ph:git-commit text-bolt-elements-textSecondary" />
+                <p className="text-xs text-bolt-elements-textSecondary">Version</p>
+              </div>
               <p className="text-sm font-medium text-bolt-elements-textPrimary font-mono">
                 {connitJson.commit.slice(0, 7)}
                 <span className="ml-2 text-xs text-bolt-elements-textSecondary">
@@ -546,22 +624,31 @@ export default function DebugTab() {
                 </span>
               </p>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        <div>
-          <h4 className="text-md font-medium text-bolt-elements-textPrimary mb-2">Local LLM Status</h4>
-          <div className="bg-bolt-elements-surface rounded-lg">
-            <div className="grid grid-cols-1 divide-y">
+        <motion.div
+          className="space-y-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="i-ph:robot text-xl text-purple-500" />
+            <h4 className="text-md font-medium text-bolt-elements-textPrimary">Local LLM Status</h4>
+          </div>
+          <motion.div className={classNames(settingsStyles.card, 'bg-bolt-elements-background-depth-2')}>
+            <div className="divide-y divide-bolt-elements-borderColor">
               {activeProviders.map((provider) => (
-                <div key={provider.name} className="p-3 flex flex-col space-y-2">
+                <div key={provider.name} className="p-4 first:pt-0 last:pb-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0">
                         <div
-                          className={`w-2 h-2 rounded-full ${
-                            !provider.enabled ? 'bg-gray-300' : provider.isRunning ? 'bg-green-400' : 'bg-red-400'
-                          }`}
+                          className={classNames(
+                            'w-2 h-2 rounded-full',
+                            !provider.enabled ? 'bg-gray-400' : provider.isRunning ? 'bg-green-500' : 'bg-red-500',
+                          )}
                         />
                       </div>
                       <div>
@@ -575,17 +662,21 @@ export default function DebugTab() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          provider.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}
+                        className={classNames(
+                          'px-2 py-0.5 text-xs rounded-full',
+                          provider.enabled
+                            ? 'bg-green-500/10 text-green-500'
+                            : 'bg-gray-500/10 text-bolt-elements-textSecondary',
+                        )}
                       >
                         {provider.enabled ? 'Enabled' : 'Disabled'}
                       </span>
                       {provider.enabled && (
                         <span
-                          className={`px-2 py-0.5 text-xs rounded-full ${
-                            provider.isRunning ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}
+                          className={classNames(
+                            'px-2 py-0.5 text-xs rounded-full',
+                            provider.isRunning ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500',
+                          )}
                         >
                           {provider.isRunning ? 'Running' : 'Not Running'}
                         </span>
@@ -593,31 +684,28 @@ export default function DebugTab() {
                     </div>
                   </div>
 
-                  <div className="pl-5 flex flex-col space-y-1 text-xs">
-                    {/* Status Details */}
+                  <div className="pl-5 mt-2 space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      <span className="text-bolt-elements-textSecondary">
+                      <span className="text-xs text-bolt-elements-textSecondary">
                         Last checked: {new Date(provider.lastChecked).toLocaleTimeString()}
                       </span>
                       {provider.responseTime && (
-                        <span className="text-bolt-elements-textSecondary">
+                        <span className="text-xs text-bolt-elements-textSecondary">
                           Response time: {Math.round(provider.responseTime)}ms
                         </span>
                       )}
                     </div>
 
-                    {/* Error Message */}
                     {provider.error && (
-                      <div className="mt-1 text-red-600 bg-red-50 rounded-md p-2">
+                      <div className="mt-2 text-xs text-red-500 bg-red-500/10 rounded-md p-2">
                         <span className="font-medium">Error:</span> {provider.error}
                       </div>
                     )}
 
-                    {/* Connection Info */}
                     {provider.url && (
-                      <div className="text-bolt-elements-textSecondary">
+                      <div className="text-xs text-bolt-elements-textSecondary mt-2">
                         <span className="font-medium">Endpoints checked:</span>
-                        <ul className="list-disc list-inside pl-2 mt-1">
+                        <ul className="list-disc list-inside pl-2 mt-1 space-y-1">
                           <li>{provider.url} (root)</li>
                           <li>{provider.url}/api/health</li>
                           <li>{provider.url}/v1/models</li>
@@ -631,8 +719,8 @@ export default function DebugTab() {
                 <div className="p-4 text-center text-bolt-elements-textSecondary">No local LLMs configured</div>
               )}
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </section>
     </div>
   );

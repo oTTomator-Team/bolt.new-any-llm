@@ -1,23 +1,43 @@
 import { globSync } from 'fast-glob';
 import fs from 'node:fs/promises';
-import { basename } from 'node:path';
+import { basename, join } from 'node:path';
 import { defineConfig, presetIcons, presetUno, transformerDirectives } from 'unocss';
+import type { IconifyJSON } from '@iconify/types';
 
-const iconPaths = globSync('./icons/*.svg');
+// Debug: Log the current working directory and icon paths
+console.log('CWD:', process.cwd());
+
+const iconPaths = globSync(join(process.cwd(), 'public/icons/*.svg'));
+console.log('Found icons:', iconPaths);
 
 const collectionName = 'bolt';
 
-const customIconCollection = iconPaths.reduce(
-  (acc, iconPath) => {
-    const [iconName] = basename(iconPath).split('.');
+const customIconCollection = {
+  [collectionName]: iconPaths.reduce(
+    (acc, iconPath) => {
+      const [iconName] = basename(iconPath).split('.');
 
-    acc[collectionName] ??= {};
-    acc[collectionName][iconName] = async () => fs.readFile(iconPath, 'utf8');
+      acc[iconName] = async () => {
+        try {
+          const content = await fs.readFile(iconPath, 'utf8');
+          return content
+            .replace(/fill="[^"]*"/g, '')
+            .replace(/fill='[^']*'/g, '')
+            .replace(/width="[^"]*"/g, '')
+            .replace(/height="[^"]*"/g, '')
+            .replace(/viewBox="[^"]*"/g, 'viewBox="0 0 24 24"')
+            .replace(/<svg([^>]*)>/, '<svg $1 fill="currentColor">');
+        } catch (error) {
+          console.error(`Error loading icon ${iconName}:`, error);
+          return '';
+        }
+      };
 
-    return acc;
-  },
-  {} as Record<string, Record<string, () => Promise<string>>>,
-);
+      return acc;
+    },
+    {} as Record<string, () => Promise<string>>,
+  ),
+};
 
 const BASE_COLORS = {
   white: '#FFFFFF',
@@ -98,9 +118,7 @@ const COLOR_PRIMITIVES = {
 };
 
 export default defineConfig({
-  safelist: [
-    ...Object.keys(customIconCollection[collectionName]||{}).map(x=>`i-bolt:${x}`)    
-  ],
+  safelist: [...Object.keys(customIconCollection[collectionName] || {}).map((x) => `i-bolt:${x}`)],
   shortcuts: {
     'bolt-ease-cubic-bezier': 'ease-[cubic-bezier(0.4,0,0.2,1)]',
     'transition-theme': 'transition-[background-color,border-color,color] duration-150 bolt-ease-cubic-bezier',
@@ -242,9 +260,27 @@ export default defineConfig({
     presetIcons({
       warn: true,
       collections: {
-        ...customIconCollection,
+        bolt: customIconCollection.bolt,
+        ph: async () => {
+          const icons = await import('@iconify-json/ph/icons.json');
+          return icons.default as IconifyJSON;
+        },
       },
-      unit: 'em',
+      extraProperties: {
+        display: 'inline-block',
+        'vertical-align': 'middle',
+        width: '24px',
+        height: '24px',
+      },
+      customizations: {
+        customize(props) {
+          return {
+            ...props,
+            width: '24px',
+            height: '24px',
+          };
+        },
+      },
     }),
   ],
 });
