@@ -37,6 +37,7 @@ services:
     image: bolt-ai:development
     build:
       target: bolt-ai-development
+    env_file: ".env.local"
     environment:
       - NODE_ENV=development
       - VITE_HMR_PROTOCOL=ws
