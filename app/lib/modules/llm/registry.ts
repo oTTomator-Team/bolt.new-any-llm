@@ -9,6 +9,7 @@ import MistralProvider from './providers/mistral';
 import OllamaProvider from './providers/ollama';
 import OpenRouterProvider from './providers/open-router';
 import OpenAILikeProvider from './providers/openai-like';
+import glhfchatProvider from './providers/glhf.chat';
 import OpenAIProvider from './providers/openai';
 import PerplexityProvider from './providers/perplexity';
 import TogetherProvider from './providers/together';
@@ -28,6 +29,7 @@ export {
   MistralProvider,
   OllamaProvider,
   OpenAIProvider,
+  glhfchatProvider,
   OpenRouterProvider,
   OpenAILikeProvider,
   PerplexityProvider,
