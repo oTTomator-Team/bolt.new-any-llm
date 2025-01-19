@@ -18,6 +18,10 @@ import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import Cookies from 'js-cookie';
+import { GitHubCreateRepoDialog } from '~/components/settings/GitHubCreateRepoDialog';
+import { GitHubCredentialsDialog } from '~/components/settings/GitHubCredentialsDialog';
+import { GitHubPushDialog } from '~/components/settings/GitHubPushDialog';
+import { type GitHubPushProgress } from '~/lib/stores/workbench';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -58,6 +62,10 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
   renderLogger.trace('Workbench');
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showCreateRepoDialog, setShowCreateRepoDialog] = useState(false);
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
+  const [pendingRepoName, setPendingRepoName] = useState<string | null>(null);
+  const [pushProgress, setPushProgress] = useState<GitHubPushProgress | null>(null);
 
   const hasPreview = useStore(computed(workbenchStore.previews, (previews) => previews.length > 0));
   const showWorkbench = useStore(workbenchStore.showWorkbench);
@@ -120,6 +128,62 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
     }
   }, []);
 
+  const handleCreateRepo = (repoName: string) => {
+    const githubUsername = Cookies.get('githubUsername');
+    const githubToken = Cookies.get('githubToken');
+
+    setPendingRepoName(repoName);
+
+    if (!githubUsername || !githubToken) {
+      setShowCredentialsDialog(true);
+    } else {
+      setPushProgress({
+        stage: 'preparing',
+        progress: 0,
+        details: 'Select repository and branch',
+        icon: 'github',
+        color: 'default',
+      });
+    }
+  };
+
+  const handlePushSubmit = (repository: string, branch: string) => {
+    const githubUsername = Cookies.get('githubUsername');
+    const githubToken = Cookies.get('githubToken');
+
+    if (!githubUsername || !githubToken) {
+      setShowCredentialsDialog(true);
+      return;
+    }
+
+    workbenchStore.pushToGitHub(repository, githubUsername, githubToken, {
+      onProgress: setPushProgress,
+      branch,
+    });
+  };
+
+  const handleCredentialsSubmit = (_username: string, _token: string) => {
+    if (pendingRepoName) {
+      setPushProgress({
+        stage: 'preparing',
+        progress: 0,
+        details: 'Select repository and branch',
+        icon: 'github',
+        color: 'default',
+      });
+      setShowCredentialsDialog(false);
+    }
+  };
+
+  const handlePushComplete = () => {
+    setPushProgress(null);
+    setPendingRepoName(null);
+  };
+
+  const handleBranchSelect = (_branch: string) => {
+    // We don't need to store the branch locally anymore since it's handled in the dialog
+  };
+
   return (
     chatStarted && (
       <motion.div
@@ -145,61 +209,38 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
                 <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                 <div className="ml-auto" />
                 {selectedView === 'code' && (
-                  <div className="flex overflow-y-auto">
+                  <div className="flex items-center gap-3">
                     <PanelHeaderButton
-                      className="mr-1 text-sm"
                       onClick={() => {
                         workbenchStore.downloadZip();
                       }}
                     >
-                      <div className="i-ph:code" />
+                      <div className="i-ph:code text-lg" />
                       Download Code
                     </PanelHeaderButton>
-                    <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
-                      {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
+                    <PanelHeaderButton onClick={handleSyncFiles} disabled={isSyncing}>
+                      {isSyncing ? (
+                        <div className="i-ph:spinner animate-spin text-lg" />
+                      ) : (
+                        <div className="i-ph:cloud-arrow-down text-lg" />
+                      )}
                       {isSyncing ? 'Syncing...' : 'Sync Files'}
                     </PanelHeaderButton>
                     <PanelHeaderButton
-                      className="mr-1 text-sm"
                       onClick={() => {
                         workbenchStore.toggleTerminal(!workbenchStore.showTerminal.get());
                       }}
                     >
-                      <div className="i-ph:terminal" />
+                      <div className="i-ph:terminal text-lg" />
                       Toggle Terminal
                     </PanelHeaderButton>
+                    <div className="w-[1px] h-6 bg-bolt-elements-borderColor mx-1" />
                     <PanelHeaderButton
-                      className="mr-1 text-sm"
-                      onClick={() => {
-                        const repoName = prompt(
-                          'Please enter a name for your new GitHub repository:',
-                          'bolt-generated-project',
-                        );
-
-                        if (!repoName) {
-                          alert('Repository name is required. Push to GitHub cancelled.');
-                          return;
-                        }
-
-                        const githubUsername = Cookies.get('githubUsername');
-                        const githubToken = Cookies.get('githubToken');
-
-                        if (!githubUsername || !githubToken) {
-                          const usernameInput = prompt('Please enter your GitHub username:');
-                          const tokenInput = prompt('Please enter your GitHub personal access token:');
-
-                          if (!usernameInput || !tokenInput) {
-                            alert('GitHub username and token are required. Push to GitHub cancelled.');
-                            return;
-                          }
-
-                          workbenchStore.pushToGitHub(repoName, usernameInput, tokenInput);
-                        } else {
-                          workbenchStore.pushToGitHub(repoName, githubUsername, githubToken);
-                        }
-                      }}
+                      onClick={() => setShowCreateRepoDialog(true)}
+                      disabled={isSyncing}
+                      className="bg-bolt-elements-accent/10 hover:bg-bolt-elements-accent/20 text-bolt-elements-accent"
                     >
-                      <div className="i-ph:github-logo" />
+                      <div className="i-ph:github-logo-bold text-lg" />
                       Push to GitHub
                     </PanelHeaderButton>
                   </div>
@@ -241,6 +282,29 @@ export const Workbench = memo(({ chatStarted, isStreaming }: WorkspaceProps) => 
             </div>
           </div>
         </div>
+        {showCreateRepoDialog && (
+          <GitHubCreateRepoDialog
+            isOpen={showCreateRepoDialog}
+            onClose={() => setShowCreateRepoDialog(false)}
+            onSubmit={handleCreateRepo}
+          />
+        )}
+        {showCredentialsDialog && (
+          <GitHubCredentialsDialog
+            _isOpen={showCredentialsDialog}
+            onClose={() => setShowCredentialsDialog(false)}
+            onSubmit={handleCredentialsSubmit}
+          />
+        )}
+        {pushProgress && (
+          <GitHubPushDialog
+            progress={pushProgress}
+            onClose={handlePushComplete}
+            repoName={pendingRepoName || undefined}
+            onBranchSelect={handleBranchSelect}
+            onSubmit={handlePushSubmit}
+          />
+        )}
       </motion.div>
     )
   );

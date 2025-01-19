@@ -27,7 +27,7 @@ export const SettingsWindow = ({ open, onClose }: SettingsProps) => {
   const tabs: { id: TabType; label: string; icon: string; component?: ReactElement }[] = [
     { id: 'data', label: 'Data', icon: 'i-ph:database', component: <DataTab /> },
     { id: 'providers', label: 'Providers', icon: 'i-ph:key', component: <ProvidersTab /> },
-    { id: 'connection', label: 'Connection', icon: 'i-ph:link', component: <ConnectionsTab /> },
+    { id: 'connection', label: 'Github', icon: 'i-ph:link', component: <ConnectionsTab /> },
     { id: 'features', label: 'Features', icon: 'i-ph:star', component: <FeaturesTab /> },
     ...(debug
       ? [
@@ -65,7 +65,7 @@ export const SettingsWindow = ({ open, onClose }: SettingsProps) => {
         </RadixDialog.Overlay>
         <RadixDialog.Content aria-describedby={undefined} asChild>
           <motion.div
-            className="fixed top-[50%] left-[50%] z-max h-[85vh] w-[90vw] max-w-[900px] translate-x-[-50%] translate-y-[-50%] border border-bolt-elements-borderColor rounded-lg shadow-lg focus:outline-none overflow-hidden"
+            className="fixed top-[50%] left-[50%] z-max h-[95vh] w-[95vw] max-w-[1200px] translate-x-[-50%] translate-y-[-50%] border border-bolt-elements-borderColor rounded-lg shadow-lg focus:outline-none overflow-hidden"
             initial="closed"
             animate="open"
             exit="closed"
@@ -74,11 +74,11 @@ export const SettingsWindow = ({ open, onClose }: SettingsProps) => {
             <div className="flex h-full">
               <div
                 className={classNames(
-                  'w-48 border-r border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-4 flex flex-col justify-between',
+                  'w-56 border-r border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 p-6 flex flex-col justify-between',
                   styles['settings-tabs'],
                 )}
               >
-                <DialogTitle className="flex-shrink-0 text-lg font-semibold text-bolt-elements-textPrimary mb-2">
+                <DialogTitle className="flex-shrink-0 text-xl font-semibold text-bolt-elements-textPrimary mb-4">
                   Settings
                 </DialogTitle>
                 {tabs.map((tab) => (
