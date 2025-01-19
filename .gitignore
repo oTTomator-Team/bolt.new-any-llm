@@ -40,3 +40,4 @@ site
 
 # commit file ignore
 app/commit.json
+messages.json

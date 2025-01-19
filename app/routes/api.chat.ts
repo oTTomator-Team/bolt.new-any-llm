@@ -32,11 +32,12 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages, files, promptId, contextOptimization } = await request.json<{
+  const { messages, files, promptId, contextOptimization, isPromptCachingEnabled } = await request.json<{
     messages: Messages;
     files: any;
     promptId?: string;
     contextOptimization: boolean;
+    isPromptCachingEnabled: boolean;
   }>();
 
   const cookieHeader = request.headers.get('Cookie');
@@ -56,13 +57,21 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   try {
     const options: StreamingOptions = {
       toolChoice: 'none',
-      onFinish: async ({ text: content, finishReason, usage }) => {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      onFinish: async ({ text: content, finishReason, usage, experimental_providerMetadata }) => {
         logger.debug('usage', JSON.stringify(usage));
 
+        const cacheUsage = experimental_providerMetadata?.anthropic;
+        console.debug({ cacheUsage });
+
         if (usage) {
-          cumulativeUsage.completionTokens += usage.completionTokens || 0;
-          cumulativeUsage.promptTokens += usage.promptTokens || 0;
-          cumulativeUsage.totalTokens += usage.totalTokens || 0;
+          cumulativeUsage.completionTokens += Math.round(usage.completionTokens || 0);
+          cumulativeUsage.promptTokens += Math.round(
+            (usage.promptTokens || 0) +
+              ((cacheUsage?.cacheCreationInputTokens as number) || 0) * 1.25 +
+              ((cacheUsage?.cacheReadInputTokens as number) || 0) * 0.1,
+          );
+          cumulativeUsage.totalTokens = cumulativeUsage.completionTokens + cumulativeUsage.promptTokens;
         }
 
         if (finishReason !== 'length') {
@@ -115,6 +124,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           providerSettings,
           promptId,
           contextOptimization,
+          isPromptCachingEnabled,
         });
 
         stream.switchSource(result.toDataStream());
@@ -134,6 +144,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
       providerSettings,
       promptId,
       contextOptimization,
+      isPromptCachingEnabled,
     });
 
     (async () => {

@@ -30,12 +30,12 @@
     "node": ">=18.18.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^0.0.39",
+    "@ai-sdk/amazon-bedrock": "1.0.6",
+    "@ai-sdk/anthropic": "^1.0.6",
     "@ai-sdk/cohere": "^1.0.3",
     "@ai-sdk/google": "^0.0.52",
     "@ai-sdk/mistral": "^0.0.43",
     "@ai-sdk/openai": "^0.0.66",
-    "@ai-sdk/amazon-bedrock": "1.0.6",
     "@codemirror/autocomplete": "^6.18.3",
     "@codemirror/commands": "^6.7.1",
     "@codemirror/lang-cpp": "^6.0.2",
@@ -74,7 +74,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
-    "ai": "^4.0.13",
+    "ai": "^4.0.22",
     "chalk": "^5.4.1",
     "date-fns": "^3.6.0",
     "diff": "^5.2.0",
