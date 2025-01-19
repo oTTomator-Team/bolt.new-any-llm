@@ -1,9 +1,11 @@
-/*
- * @ts-nocheck
- * Preventing TS checks with files presented in the video for a better presentation.
- */
+import React, { 
+  type RefCallback, 
+  useEffect, 
+  useState, 
+  useRef, 
+  forwardRef 
+} from 'react';
 import type { Message } from 'ai';
-import React, { type RefCallback, useEffect, useState } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { Menu } from '~/components/sidebar/Menu.client';
 import { IconButton } from '~/components/ui/IconButton';
@@ -64,9 +66,10 @@ interface BaseChatProps {
   setImageDataList?: (dataList: string[]) => void;
   actionAlert?: ActionAlert;
   clearAlert?: () => void;
+  onApiKeysChange?: (providerName: string, apiKey: string) => void;
 }
 
-export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
+export const BaseChat = forwardRef<HTMLDivElement, BaseChatProps>(
   (
     {
       textareaRef,
@@ -296,7 +299,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             {!chatStarted && (
               <div id="intro" className="mt-[16vh] max-w-chat mx-auto text-center px-4 lg:px-0">
                 <h1 className="text-3xl lg:text-6xl font-bold text-bolt-elements-textPrimary mb-4 animate-fade-in">
-                  Where ideas begin
+                  Where ideas starts
                 </h1>
                 <p className="text-md lg:text-xl mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200">
                   Bring ideas to life in seconds or get help on existing projects.

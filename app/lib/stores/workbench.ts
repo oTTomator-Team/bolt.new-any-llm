@@ -9,7 +9,6 @@ import { EditorStore } from './editor';
 import { FilesStore, type FileMap } from './files';
 import { PreviewsStore } from './previews';
 import { TerminalStore } from './terminal';
-import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import * as nodePath from 'node:path';
@@ -18,6 +17,9 @@ import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
+import { toast } from 'react-toastify';
+import { logStore } from '../stores/logs';
+import JSZip from 'jszip';
 
 export interface ArtifactState {
   id: string;
@@ -32,6 +34,17 @@ export type ArtifactUpdateState = Pick<ArtifactState, 'title' | 'closed'>;
 type Artifacts = MapStore<Record<string, ArtifactState>>;
 
 export type WorkbenchViewType = 'code' | 'preview';
+
+interface FileEntry {
+  content: string;
+  isDirectory: boolean;
+}
+
+interface DeploymentResult {
+  name: string;
+  url: string;
+  [key: string]: any;
+}
 
 export class WorkbenchStore {
   #previewsStore = new PreviewsStore(webcontainer);
@@ -432,6 +445,108 @@ export class WorkbenchStore {
     }
 
     return syncedFiles;
+  }
+
+  getState(): { files: Record<string, FileEntry> } {
+    // Convert the MapStore to a regular object
+    const filesMap = this.#filesStore.files.get();
+    const files: Record<string, FileEntry> = {};
+
+    for (const [path, file] of Object.entries(filesMap)) {
+      files[path] = {
+        content: file.content,
+        isDirectory: file.type === 'directory'
+      };
+    }
+
+    return { files };
+  }
+
+  async deployToNetlify(siteName: string, netlifyToken: string) {
+    try {
+      const { files } = this.getState();
+      const projectFiles = Object.entries(files)
+        .filter(([_, file]) => !file.isDirectory)
+        .map(([path, file]) => ({ path, content: file.content }));
+
+      console.log('[Netlify Deployment] Starting deployment process', {
+        timestamp: new Date().toISOString(),
+        projectFileCount: projectFiles.length,
+        siteName
+      });
+
+      // Create a zip of the project files
+      const zip = new JSZip();
+      projectFiles.forEach(file => {
+        zip.file(file.path, file.content);
+        console.log('[Netlify Deployment] Adding file to zip', { path: file.path });
+      });
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      console.log('[Netlify Deployment] Zip generated', { 
+        zipSize: zipBlob.size 
+      });
+
+      // Deploy to Netlify
+      const formData = new FormData();
+      formData.append('files', zipBlob, 'project.zip');
+
+      console.log('[Netlify Deployment] Sending deployment request', {
+        siteName,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await fetch('https://api.netlify.com/api/v1/sites', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${netlifyToken}`,
+          'User-Agent': 'Bolt IDE (https://bolt.diy)'
+        },
+        body: formData
+      });
+
+      console.log('[Netlify Deployment] API Response', { 
+        status: response.status, 
+        statusText: response.statusText 
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Netlify Deployment] Deployment failed', {
+          status: response.status,
+          errorText,
+          timestamp: new Date().toISOString()
+        });
+        throw new Error(`Netlify deployment failed: ${errorText}`);
+      }
+
+      const deploymentResult: DeploymentResult = await response.json();
+
+      console.log('[Netlify Deployment] Deployment successful', {
+        siteName: deploymentResult.name,
+        siteUrl: deploymentResult.url,
+        timestamp: new Date().toISOString()
+      });
+
+      // Log and toast success
+      logStore.logSystem('Netlify deployment successful', {
+        siteName: deploymentResult.name,
+        siteUrl: deploymentResult.url
+      });
+
+      toast.success(`Successfully deployed to Netlify! Site URL: ${deploymentResult.url}`, {
+        onClick: () => window.open(deploymentResult.url, '_blank')
+      });
+
+      return deploymentResult;
+    } catch (error) {
+      console.error('[Netlify Deployment] Deployment error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+      toast.error(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
   async pushToGitHub(repoName: string, githubUsername?: string, ghToken?: string) {

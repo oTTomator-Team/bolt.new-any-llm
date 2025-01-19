@@ -1,6 +1,7 @@
 import { motion, type Variants } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { useNavigate } from '@remix-run/react';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { SettingsWindow } from '~/components/settings/SettingsWindow';
@@ -8,6 +9,7 @@ import { SettingsButton } from '~/components/ui/SettingsButton';
 import { db, deleteById, getAll, chatId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
 import { cubicEasingFn } from '~/utils/easings';
 import { logger } from '~/utils/logger';
+import { supabaseClient } from '~/utils/supabase.client';
 import { HistoryItem } from './HistoryItem';
 import { binDates } from './date-binning';
 import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
@@ -61,6 +63,7 @@ export const Menu = () => {
   const [open, setOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState<DialogContent>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const { filteredItems: filteredList, handleSearchChange } = useSearchFilter({
     items: list,
@@ -135,6 +138,28 @@ export const Menu = () => {
   const handleDuplicate = async (id: string) => {
     await duplicateCurrentChat(id);
     loadEntries(); // Reload the list after duplication
+  };
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabaseClient.auth.signOut();
+      
+      if (error) {
+        toast.error(`Sign out failed: ${error.message}`);
+        return;
+      }
+
+      // Clear any local storage or state if needed
+      localStorage.clear();
+
+      // Navigate to auth page
+      navigate('/auth');
+      
+      toast.success('Signed out successfully');
+    } catch (err) {
+      console.error('Sign out error:', err);
+      toast.error('An unexpected error occurred during sign out');
+    }
   };
 
   return (
@@ -221,12 +246,26 @@ export const Menu = () => {
             </Dialog>
           </DialogRoot>
         </div>
-        <div className="flex items-center justify-between border-t border-bolt-elements-borderColor p-4">
-          <SettingsButton onClick={() => setIsSettingsOpen(true)} />
-          <ThemeSwitch />
+        <div className="flex justify-between items-center p-4 border-t border-bolt-elements-borderColor">
+          <div className="flex items-center space-x-2 w-full">
+            <SettingsButton onClick={() => setIsSettingsOpen(true)} />
+            <ThemeSwitch />
+            <button 
+              onClick={handleSignOut}
+              className="w-full max-w-[120px] bg-[#6E3BFF] text-white py-3 px-4 rounded-lg hover:bg-[#5A30CC] transition-colors"
+              title="Sign Out"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
-      <SettingsWindow open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      {isSettingsOpen && (
+        <SettingsWindow 
+          open={isSettingsOpen} 
+          onClose={() => setIsSettingsOpen(false)} 
+        />
+      )}
     </motion.div>
   );
 };

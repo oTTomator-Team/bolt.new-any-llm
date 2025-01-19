@@ -1,0 +1,23 @@
+[build]
+  command = "pnpm install && pnpm run build"
+  publish = "build/client"
+
+[build.environment]
+  NODE_VERSION = "18.20.5"
+  PNPM_VERSION = "9.4.0"
+  NODE_OPTIONS = "--max_old_space_size=4096"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  VITE_SUPABASE_URL = "${VITE_SUPABASE_URL}"
+  VITE_SUPABASE_ANON_KEY = "${VITE_SUPABASE_ANON_KEY}"
+  VITE_OPENAI_API_KEY = "${VITE_OPENAI_API_KEY}"
+
+[context.deploy-preview.environment]
+  VITE_SUPABASE_URL = "${VITE_SUPABASE_URL}"
+  VITE_SUPABASE_ANON_KEY = "${VITE_SUPABASE_ANON_KEY}"
+  VITE_OPENAI_API_KEY = "${VITE_OPENAI_API_KEY}"

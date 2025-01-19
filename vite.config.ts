@@ -1,9 +1,11 @@
-import { cloudflareDevProxyVitePlugin as remixCloudflareDevProxy, vitePlugin as remixVitePlugin } from '@remix-run/dev';
-import UnoCSS from 'unocss/vite';
-import { defineConfig, type ViteDevServer } from 'vite';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
-import { optimizeCssModules } from 'vite-plugin-optimize-css-modules';
+import { defineConfig } from 'vite';
+import { remixVite } from '@remix-run/dev';
+import { installGlobals } from '@remix-run/node';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import nodePolyfills from 'vite-plugin-node-polyfills';
+import react from '@vitejs/plugin-react';
+import UnoCSS from 'unocss/vite';
+import { optimizeCssModules } from 'vite-plugin-optimize-css-modules';
 import * as dotenv from 'dotenv';
 import { execSync } from 'child_process';
 
@@ -18,52 +20,64 @@ const getGitHash = () => {
   }
 };
 
+installGlobals();
 
-
-
-export default defineConfig((config) => {
-  return {
-    define: {
-      __COMMIT_HASH: JSON.stringify(getGitHash()),
-      __APP_VERSION: JSON.stringify(process.env.npm_package_version),
-      // 'process.env': JSON.stringify(process.env)
-    },
-    build: {
-      target: 'esnext',
-    },
-    plugins: [
-      nodePolyfills({
-        include: ['path', 'buffer', 'process'],
-      }),
-      config.mode !== 'test' && remixCloudflareDevProxy(),
-      remixVitePlugin({
-        future: {
-          v3_fetcherPersist: true,
-          v3_relativeSplatPath: true,
-          v3_throwAbortReason: true,
-          v3_lazyRouteDiscovery: true
-        },
-      }),
-      UnoCSS(),
-      tsconfigPaths(),
-      chrome129IssuePlugin(),
-      config.mode === 'production' && optimizeCssModules({ apply: 'build' }),
-    ],
-    envPrefix: ["VITE_","OPENAI_LIKE_API_BASE_URL", "OLLAMA_API_BASE_URL", "LMSTUDIO_API_BASE_URL","TOGETHER_API_BASE_URL"],
-    css: {
-      preprocessorOptions: {
-        scss: {
-          api: 'modern-compiler',
-        },
+export default defineConfig({
+  define: {
+    __COMMIT_HASH: JSON.stringify(getGitHash()),
+    __APP_VERSION: JSON.stringify(process.env.npm_package_version),
+  },
+  plugins: [
+    remixVite(),
+    react(),
+    tsconfigPaths(),
+    nodePolyfills({
+      include: ['node:*'],
+    }),
+    UnoCSS(),
+    optimizeCssModules({ apply: 'build' }),
+  ],
+  build: {
+    outDir: 'build/client',
+    emptyOutDir: true,
+    target: 'esnext',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        }
+      }
+    }
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      '@remix-run/react',
+      'nanostores',
+      '@nanostores/react'
+    ]
+  },
+  server: {
+    port: 3000,
+    strictPort: true,
+  },
+  envPrefix: ["VITE_","OPENAI_LIKE_API_BASE_URL", "OLLAMA_API_BASE_URL", "LMSTUDIO_API_BASE_URL","TOGETHER_API_BASE_URL"],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler',
       },
     },
-  };
+  },
 });
 
 function chrome129IssuePlugin() {
   return {
     name: 'chrome129IssuePlugin',
-    configureServer(server: ViteDevServer) {
+    configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const raw = req.headers['user-agent']?.match(/Chrom(e|ium)\/([0-9]+)\./);
 
